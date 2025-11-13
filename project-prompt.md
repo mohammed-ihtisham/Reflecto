@@ -1,142 +1,254 @@
-✅ 1. Layout Upgrades
-a. Reduce Horizontal Padding
+You are upgrading an existing Svelte + Tailwind CSS codebase for an app called Reflecto.
+Reflecto is a multimodal journaling companion that blends conversational dialogue, emotional awareness, and visual storytelling. It never pretends to be human; it acts as a mirror, a facilitator, and a guide for reflective thinking. Your task is to redesign the entire frontend to be modern, sleek, emotionally adaptive, expressive, and uniquely interactive, while remaining calm, humane, and non-performative.
 
-Right now the left chat area feels slightly “boxed in.”
+🎯 Design Philosophy & Constraints
 
-Reduce sidebar padding from px-10 → px-6
+Use these research-based principles throughout:
 
-Increase vertical open space above content to give breathing room (pt-10)
+1. Critical, Non-Biased Reflection
 
-b. Increase Border Radius to XL / 2XL
+The UI should support honest, objective introspection.
 
-Modern UIs use subtle, pill-like soft corners.
+Avoid emotionally manipulative or “warm human mimicry.”
 
-For chat bubbles, use rounded-2xl
+Visual language should be grounding, not cutesy or anthropomorphic.
 
-For the snapshot grid container, use rounded-3xl
+2. Digital Support, Not Human Substitution
 
-✅ 2. Card / Bubble Styling
+Avoid avatars or features that imply “personhood.”
 
-Your bubbles already look clean, but you can make them feel more premium:
+Focus on tools (visuals, pacing, multimodal summaries) over “companionship.”
 
-a. Add Subtle Glass Surfaces
+3. Reciprocity & Pacing
 
-To match your dark UI:
+Slow, intentional animations.
 
-bg-[#0f172a]/40 backdrop-blur-xl border border-white/5
+Messages should encourage thinking, not just reacting.
 
+Prioritize low-pressure re-engagement.
 
-This gives it the “glass-panel” depth modern apps use.
+4. Transparency & Non-Pretending
 
-b. Add Inner Shadow for Depth
-shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]
+Make it visually obvious that the AI is a reflective system, not a human.
 
-c. Soften Bubble Width
+UI elements should feel structured, crafted, and “designed,” not “alive.”
 
-Instead of the full rectangle, give them:
+5. Depth Through Consistency
 
-max-w-[80%]
+Create a visual rhythm that gently invites return.
 
+Subtle ambient motion, calm breathing effects, and adaptive theming promote familiarity.
 
-Makes it feel more conversational and less robotic.
+6. No Glazing
 
-✅ 3. Typography
+Avoid over-glossy “positive” color palettes and overly-affirmative design patterns.
 
-Right now the font is clean but could be more emotionally aware / modern.
+Use minimalistic, honest, grounded effects.
 
-Use: Inter, Satoshi, or Geist
+🪞 Core Experience to Build
+➤ Left Side: Conversational Canvas
 
-All are free.
+A slow, journaling-centric chat space that feels like a modern reflective studio.
 
-Recommended structure:
+Implement:
 
-Headers: font-semibold tracking-tight
+Dynamic mood header (e.g., “You seem thoughtful today”)
 
-Message text: leading-relaxed text-[15px] text-gray-300
+Glassmorphic chat bubbles
 
-Tags (“You seem thoughtful today”): uppercase tracking-wider text-[11px] text-gray-400
+Emotion-adaptive color accents
 
-✅ 4. Color & Visual Hierarchy
+Word-by-word message reveals
 
-Your dark palette is good — just refine it:
+Subtle breathing-style typing indicator
 
-a. Upgrade to a layered dark gradient
-bg-gradient-to-b from-[#0d1117] via-[#0b1220] to-[#05070c]
+Input bar that gently expands on focus (no bright flares)
 
-b. Add a subtle “glow badge”
+Idle “guided suggestion prompts” above input
 
-Instead of flat green:
+Micro-interactions:
 
-<div class="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-md shadow-emerald-500/5">
+subtle hover tilt
 
+soft ripple on click
 
-Looks softer and more premium.
+gradient border glow tied to emotional valence
 
-✅ 5. Chat Panel Container
+The chat should feel more like a mindful conversation space than a chat app.
 
-Give it more “AI agent console” vibes:
+➤ Right Side: Visual Reflection Canvas
 
-Add soft lighting:
-shadow-xl shadow-black/30 ring-1 ring-white/5
+A dynamic diary pane that produces comic-style “Snapshot of the Day” panels.
 
-Increase blur for more futuristic look:
-backdrop-blur-2xl
+Implement:
 
-✅ 6. Snapshot-of-the-Day Grid
+A 6-panel grid with soft shadows + staggering fade-in
 
-Right now it looks the least modern. Here's how to elevate it:
+Glass panels with slight parallax movement
 
-a. Switch to neumorphic-like soft shadows
-bg-[#f9fafb] rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.06)]
+Panels should appear like Polaroids or sketch frames
 
-b. Add hover interaction
+Mood-adaptive strokes (greens, lavenders, teals, gold accents depending on tone)
 
-Panels should feel tappable:
+Clicking a panel → opens modal with:
 
-transition-transform duration-300
-hover:scale-[1.03]
-active:scale-[0.98]
+Emoji emotional tags
 
-c. Add a soft “ink drop” highlight
-hover:bg-white/60
+Text summary
 
-✅ 7. Micro-Animations
+Room for image generation later
 
-Modernity = motion.
+Optional:
 
-When new messages appear:
-animate-[fadeInUp_0.3s_ease-out]
+“Shuffle comic layout” button with elastic animation
 
+Drag-and-drop rearrangement
 
-Or in Svelte:
+This pane should feel like a living illustrated diary, not a sterile dashboard.
 
-<div transition:slide={{ y: 12, duration: 250 }}>
+🎨 Visual Language Requirements
+Typography
 
-When snapshot panels are generated:
-animate-[scaleIn_0.4s_ease-out]
+Base: Inter
 
-✅ 8. Add Thin Separators for Structure
+Reflective/emotional moments: EB Garamond Italic
 
-Think iOS Vision Pro:
+Empathetic notes or summaries: Poppins Semibold (used sparingly)
 
-<div class="border-t border-white/5"></div>
+Typefaces should modulate gradually based on emotional tone (valence, depth, pacing).
 
+Color & Mood System
 
-This creates “zones” without clutter.
+Use slow-transitioning diagonally-animated gradients:
 
-🎨 Example Updated Styles for the Chat Bubble
+Happy/Neutral: muted greens + warm yellow accents
 
-Use this as a drop-in:
+Reflective/Somber: lavender + dusty purple
 
-<div class="max-w-[80%] p-5 rounded-2xl bg-white/5 backdrop-blur-2xl 
-            border border-white/10 text-gray-200 shadow-xl shadow-black/20
-            animate-[fadeInUp_0.3s_ease-out] leading-relaxed">
-  Oh, that sounds incredibly difficult to go through...
-</div>
+Motivational: teal + subtle gold
 
-🪄 10. Example Updated Styles for the Snapshot Panel
-<div class="h-32 rounded-2xl bg-white/60 
-            shadow-[0_8px_30px_rgba(0,0,0,0.06)] 
-            hover:scale-[1.03] active:scale-[0.97] 
-            transition-all cursor-pointer">
-</div>
+Low-Energy: deep navy + forest green
+
+The background gradient slowly breathes, shifting only slightly between messages.
+
+Animations
+
+Use gentle, meditative motion:
+
+Chat bubble fade-up + 2–3px lift
+
+Typing dots that breathe (slower for deep reflection)
+
+Panels that pop in with 40ms stagger
+
+Input bar pulse when unfocused
+
+Brief hesitation before deep questions
+
+Avoid fast or “playful” animations; stay grounded and calm.
+
+🔧 Implementation Details
+
+Use:
+
+Svelte transitions (fade, slide, scale)
+
+Tailwind CSS with custom animations
+
+Backdrops + blurs for glassmorphism
+
+CSS variables for mood colors
+
+Framer-motion-like timing (if applicable)
+
+Add a global “emotion state variable” that affects:
+
+gradient
+
+accent colors
+
+bubble border
+
+animation speed
+
+typeface style
+
+🧪 Evaluation Metrics to Design Around
+
+Build UI components that support these metrics programmatically:
+
+Reflective Depth Index → Show more EB Garamond, slower animations
+
+Suggestiveness Score → Reduce bold fonts, warm colors if score rises
+
+User-Centric Question Ratio → Chat bubble coloration subtlety
+
+Emoji Emotional Accuracy Rate → Panel mood visualization clarity
+
+Critical Thinking Ratio → Emphasize non-directive, open-ended phrasing
+
+The UI must visually reinforce autonomy, reflection, and honesty.
+
+🧩 Your Task: Generate Code + Components
+
+Based on everything above, produce:
+
+1. A complete redesign of the Reflecto home screen layout
+
+chat left, visual canvas right
+
+modern, minimal, atmospheric
+
+2. New components
+
+<MoodHeader />
+
+<ReflectiveChatBubble />
+
+<BreathingTypingIndicator />
+
+<SuggestionChips />
+
+<SnapshotPanel />
+
+<SnapshotModal />
+
+<AnimatedGradientBackground />
+
+<MoodAdaptiveLayout />
+
+3. Tailwind utility classes + custom animations
+
+breathing
+
+soft parallax
+
+gradient drift
+
+delayed fade
+
+4. Revised global theme tokens
+
+color variables
+
+typography scales
+
+mood → motion mapping
+
+5. Clean, modular Svelte architecture
+
+Follow component boundaries, state stores, transitions, and props cleanly.
+
+🧷 Output Requirements
+
+Provide the new folder/component structure
+
+Generate Svelte component code
+
+Generate Tailwind config extensions
+
+Include markdown commentary explaining key decisions
+
+Apply all the emotional, reflective, and anti-glazing principles
+
+Make it beautiful, modern, calm, and deeply human-aware without pretending to be human
