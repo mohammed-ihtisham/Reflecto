@@ -1,72 +1,119 @@
-## A3: Multi‑agent Interaction
+## Reflecto — Multimodal Journaling Companion
 
-This starter guides you to build a frame‑sensitive conversational system in SvelteKit. You will design and implement frame agents, an orchestrator, and a replier so the system adapts its tone/genre/goals based on context.
+Reflecto is a multimodal journaling companion that blends dialogue, emotion, and imagery to help users debrief, gain perspective, and develop emotional awareness.
 
-What you implement:
-- Agents in `src/lib/agents/*` 
-- Orchestrators in `src/lib/orchestrators/*` (also stubbed).
+Each conversation ends with a comic‑style “snapshot of the day,” a visual narrative of moods and moments that you can revisit later.
 
-## Setup and Running the App
+## Why this project
 
-Install required tools (choose per OS):
-- Node.js 20.x (includes npm)
-  - macOS: `brew install node` (Homebrew), or download from nodejs.org
-  - Windows: install Node LTS from nodejs.org (includes npm)
-  - Linux: use your package manager or NodeSource installers
-- Git (to clone and manage the repo)
-- An editor (Cursor recommended)
+- **Emotional reflection**: Guided conversations that adapt tone and prompts to how you feel.
+- **Memory cues**: A lightweight visual summary helps anchor the day for future recall.
+- **Portfolio value**: Demonstrates multi‑agent orchestration, prompt design, and modern UI implementation.
 
-Clone and start the app:
-- `git clone <your-repo-url>`
-- `cd A3-Starter`
-- `cp .env.example .env` (you will fill it in Step 1)
-- `npm install`
-- `npm run dev`
-- Open `http://localhost:5173`
+## Key features
 
-At this point, you should have a working app that you can use to chat with the replier; however, the replier will not be able to use the Gemini API because you have not yet added your API key to `.env`.
+- **Conversational journaling**: A responsive chat that encourages deeper reflection.
+- **Tone and framing**: Simple agent/orchestrator pattern modulates style and goals per context.
+- **Snapshot of the day**: Comic‑style grid that encapsulates the session’s moods and highlights.
+- **Modern UI**: Layered dark gradient, glass surfaces, soft shadows, and micro‑animations.
+- **SvelteKit app**: Fast, minimal, component‑driven implementation.
 
-## Getting Started with the Gemini API
+## How it works
 
-Per the instructions in Canvas, add Google API credits to a personal Google account. 
+1. User submits a message in the journal input.
+2. The server endpoint (`src/routes/api/chat/+server.js`) processes the chat history.
+3. An orchestrator coordinates one or more agents (`src/lib/orchestrators/*`, `src/lib/agents/*`), generating an assistant reply via the Gemini API wrapper (`src/lib/gemini.js`).
+4. The UI renders the assistant message and updates the right‑side “Snapshot” panel to reflect the session’s themes.
 
-Important: While you will use your `@mit.edu` email to get a coupon code for Gemini credits, do NOT claim credits using your `@mit.edu` email. Instead, use a personal Google account to avoid institutional billing/limits.
+## Tech stack
 
-Once you have credits added, you can create an API key in Google AI Studio and add it to `.env`.
+- **Framework**: SvelteKit + Vite
+- **UI**: Tailwind CSS (CDN)
+- **AI**: Google Gemini (via simple server wrapper)
+- **Language**: TypeScript‑friendly Svelte project structure
 
-Steps:
-- Go to Google AI Studio (https://aistudio.google.com/)
-- Click Get API Key
-- Click Create API Key
-- Copy your key and set environment values in `.env`:
+## Project structure
 
+```text
+src/
+  lib/
+    agents/               # Agent behaviors and styles of response
+    orchestrators/        # Orchestrates multiple agents
+    components/
+      journal/            # Chat UI (header, panel, bubble, input)
+      snapshot/           # Snapshot-of-the-day panel
+      layout/             # App shell & layout
+    gemini.js             # Gemini client wrapper
+  routes/
+    api/chat/+server.js   # Chat API endpoint
+    +page.svelte          # Main page wiring components together
 ```
+
+## Run locally
+
+Requirements:
+- Node.js 20+
+- npm
+
+Setup:
+
+```bash
+git clone <your-repo-url>
+cd Reflecto
+npm install
+cp .env.example .env   # create if missing
+```
+
+Environment variables (`.env`):
+
+```env
 GEMINI_API_KEY=your_api_key_here
 GEMINI_MODEL=gemini-2.5-flash
 ```
 
-Restart `npm run dev` after changing `.env`.
+Start dev server:
 
-## Safely Deploy to Vercel
+```bash
+npm run dev
+```
 
-After implementing the agents and orchestrators, you can set up Vercel and deploy your application without exposing secrets.
+Then open `http://localhost:5173`.
 
-Reminder: do not commit `.env` or any API keys to Git.
+## Deploy
 
-Steps:
-- Create a Vercel account and import your GitHub repo as a new project
-- In Vercel Project Settings → Environment Variables, add:
-  - `GEMINI_API_KEY` 
-  - `GEMINI_MODEL` (e.g., `gemini-2.5-flash`)
-- Trigger a deploy (Vercel builds and hosts your app)
-- Verify the app works at your Vercel URL
+Vercel works well for SvelteKit:
+- Add `GEMINI_API_KEY` and `GEMINI_MODEL` in Vercel → Project Settings → Environment Variables.
+- Deploy from your GitHub repo.
+- Never commit secrets; `.env` is ignored by default.
 
-Safety reminders:
-- Ensure `.env` is in `.gitignore` (already included)
-- Never push secrets to Git; use Vercel Environment Variables only
-- Optionally rotate keys after testing
+## Customization
 
-## Quick Dev Reference
+- **Conversation behavior**: Tweak or add agents in `src/lib/agents/*` and orchestration logic in `src/lib/orchestrators/*`.
+- **UI look and feel**: Update layout (`src/lib/components/layout/AppShell.svelte`) and journal/snapshot components in `src/lib/components/*`.
+- **Model settings**: Adjust `GEMINI_MODEL` or sampling params inside `src/lib/gemini.js`.
 
-- Start dev server: `npm run dev` (http://localhost:5173)
-- Build: `npm run build`
+## Screenshots (suggested)
+
+- Chat flow — empathic prompts and responses
+- Snapshot of the day — comic‑style grid
+- Light/hover states — subtle motion and depth
+
+Add images to `docs/` and reference them here.
+
+## Roadmap
+
+- Richer snapshot generation (emoji/keyword tiles, captions, export)
+- Optional voice and image inputs
+- Local/session storage for journaling history
+- Calendar view of past snapshots
+
+## Notes on safety and ethics
+
+- The assistant is a journaling companion, not a clinician.
+- Encourage seeking professional help for crises; avoid diagnostic language.
+- Do not log sensitive data by default; be mindful of storage and telemetry choices.
+
+## Credits
+
+- Built with SvelteKit and Tailwind CSS
+- Uses Gemini via the Google AI API ([Google AI Studio](https://aistudio.google.com))
