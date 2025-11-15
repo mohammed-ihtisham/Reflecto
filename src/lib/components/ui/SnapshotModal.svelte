@@ -3,7 +3,7 @@
   export let open = false;
   export let title = 'Snapshot';
   export let summary = 'A reflective summary will appear here.';
-  export let tags = ['😊', '🤔', '🌿', '⚖️', '✨'];
+  export let panels = [];
   const dispatch = createEventDispatcher();
   function close() {
     dispatch('close');
@@ -11,10 +11,10 @@
 </script>
 
 {#if open}
-  <div class="fixed inset-0 z-50 grid place-items-center">
+  <div class="fixed inset-0 z-50 grid place-items-center p-4 overflow-y-auto">
     <button class="absolute inset-0 bg-black/60" type="button" aria-label="Close snapshot modal" on:click={close}></button>
-    <div class="relative w-[90vw] max-w-lg rounded-3xl bg-white text-slate-900 p-5 md:p-6 border border-white/90 shadow-2xl animate-fade-delayed">
-      <div class="flex items-start justify-between gap-4 mb-3">
+    <div class="relative w-full max-w-2xl rounded-3xl bg-white text-slate-900 p-5 md:p-6 border border-white/90 shadow-2xl animate-fade-delayed my-8">
+      <div class="flex items-start justify-between gap-4 mb-4">
         <div>
           <div class="text-xs uppercase tracking-wide text-stone-500">Snapshot of the day</div>
           <div class="text-xl font-semibold font-display">{title}</div>
@@ -26,17 +26,29 @@
         </button>
       </div>
 
-      <div class="rounded-2xl bg-gradient-to-br from-accent/10 to-accent2/10 border border-slate-200 p-3 mb-3">
+      <div class="rounded-2xl bg-gradient-to-br from-accent/10 to-accent2/10 border border-slate-200 p-4 mb-4">
         <div class="font-serif italic text-slate-800 leading-relaxed">{summary}</div>
       </div>
 
-      <div class="flex items-center flex-wrap gap-2">
-        {#each tags as t}
-          <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-200 px-2 py-1 text-sm">
-            <span class="text-base">{t}</span>
-          </span>
-        {/each}
-      </div>
+      {#if panels && panels.length > 0}
+        <div class="grid grid-cols-2 gap-3 mb-4">
+          {#each panels as panel}
+            <div class="rounded-xl overflow-hidden border border-slate-200 shadow-sm">
+              {#if panel.imageUrl}
+                <img src={panel.imageUrl} alt={panel.title} class="w-full aspect-[4/3] object-cover" />
+              {:else}
+                <div class="w-full aspect-[4/3] bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
+                  <span class="text-slate-400 text-xs">Loading...</span>
+                </div>
+              {/if}
+              <div class="p-2 bg-white">
+                <div class="text-xs text-stone-500 uppercase tracking-wide">{panel.mood || ''}</div>
+                <div class="text-sm font-semibold">{panel.title}</div>
+              </div>
+            </div>
+          {/each}
+        </div>
+      {/if}
     </div>
   </div>
 {/if}

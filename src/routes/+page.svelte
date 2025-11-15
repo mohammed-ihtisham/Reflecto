@@ -27,14 +27,9 @@
     'What surprised you about your reactions?',
     'What do you want to carry into tomorrow?'
   ];
-  let snapshots = [
-    { id: 1, title: 'Quiet coffee at sunrise', subtitle: 'Calm' },
-    { id: 2, title: 'A tricky conversation', subtitle: 'Reflective' },
-    { id: 3, title: 'Small win at work', subtitle: 'Gratitude' },
-    { id: 4, title: 'Walk under the trees', subtitle: 'Grounded' },
-    { id: 5, title: 'Letting go of a worry', subtitle: 'Relief' },
-    { id: 6, title: 'Noticing tension ease', subtitle: 'Somatic' }
-  ];
+  let snapshots = [];
+  let isGeneratingSnapshot = false;
+  let snapshotError = '';
 
   onMount(() => {
     moodStore.set(currentMood);
@@ -61,6 +56,56 @@
       messages = [...messages, { role: 'assistant', content: data.assistantMessage }];
     }
     isLoading = false;
+    
+    // Generate snapshot after a few messages (3+ user messages)
+    const userMessageCount = messages.filter(m => m.role === 'user').length;
+    if (userMessageCount >= 3 && snapshots.length === 0) {
+      generateSnapshot();
+    }
+  }
+
+  async function generateSnapshot() {
+    if (isGeneratingSnapshot || messages.length < 2) return;
+    
+    isGeneratingSnapshot = true;
+    snapshotError = '';
+    
+    try {
+      const res = await fetch('/api/snapshot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ history: messages })
+      });
+      
+      const data = await res.json();
+      
+      if (!res.ok || data?.error) {
+        snapshotError = data?.error || 'Snapshot generation failed';
+        isGeneratingSnapshot = false;
+        return;
+      }
+      
+      if (data.panels && data.panels.length > 0) {
+        snapshots = data.panels.map((panel, i) => ({
+          id: i + 1,
+          title: panel.title,
+          subtitle: panel.mood,
+          imageUrl: panel.imageUrl,
+          mood: panel.mood
+        }));
+        // Store the full snapshot data for the modal
+        selectedSnapshot = { 
+          title: 'Snapshot of the Day',
+          summary: data.summary, 
+          panels: data.panels 
+        };
+      }
+    } catch (err) {
+      snapshotError = 'Failed to generate snapshot';
+      console.error('Snapshot generation error:', err);
+    } finally {
+      isGeneratingSnapshot = false;
+    }
   }
 
   function handleSubmit(e) {
@@ -72,7 +117,15 @@
   }
 
   function openSnapshot(s) {
-    selectedSnapshot = s;
+    // Use the stored snapshot data (already set when snapshot was generated)
+    // If not available, create a basic one
+    if (!selectedSnapshot || !selectedSnapshot.panels) {
+      selectedSnapshot = {
+        title: 'Snapshot of the Day',
+        summary: 'A moment captured in reflection.',
+        panels: []
+      };
+    }
     isModalOpen = true;
   }
 
@@ -115,15 +168,47 @@
         <div class="text-lg md:text-xl font-semibold font-display">Snapshot of the day</div>
       </div>
       <div class="flex-1 min-h-0 overflow-auto pr-1">
-        <div class="grid grid-cols-2 sm:grid-cols-3 content-start gap-2 sm:gap-3">
-          {#each snapshots as s, i}
-            <div class="animate-fade-delayed" style="animation-delay: {i * 60}ms">
-              <SnapshotPanel title={s.title} subtitle={s.subtitle} tilt={(i % 2 === 0 ? -0.8 : 0.6)} onClick={() => openSnapshot(s)} />
+        {#if isGeneratingSnapshot}
+          <div class="flex items-center justify-center h-full">
+            <div class="text-center">
+              <BreathingTypingIndicator label="Creating snapshot" />
+              <p class="text-sm text-stone-500 mt-2">Generating your comic-style snapshot...</p>
             </div>
-          {/each}
-        </div>
+          </div>
+        {:else if snapshotError}
+          <div class="bg-rose-100 text-rose-900 border border-rose-300 rounded-2xl p-3 text-sm">
+            {snapshotError}
+          </div>
+        {:else if snapshots.length > 0}
+          <div class="grid grid-cols-2 sm:grid-cols-3 content-start gap-2 sm:gap-3">
+            {#each snapshots as s, i}
+              <div class="animate-fade-delayed" style="animation-delay: {i * 60}ms">
+                <SnapshotPanel 
+                  title={s.title} 
+                  subtitle={s.subtitle} 
+                  imageUrl={s.imageUrl}
+                  tilt={(i % 2 === 0 ? -0.8 : 0.6)} 
+                  onClick={() => openSnapshot(s)} 
+                />
+              </div>
+            {/each}
+          </div>
+        {:else}
+          <div class="flex items-center justify-center h-full text-center">
+            <div class="text-stone-400 text-sm">
+              <p>Your snapshot will appear here</p>
+              <p class="text-xs mt-1">Keep chatting to generate your comic-style snapshot</p>
+            </div>
+          </div>
+        {/if}
       </div>
     </div>
-    <SnapshotModal open={isModalOpen} title={selectedSnapshot?.title} summary="This space will hold your reflective summary." on:close={closeModal} />
+    <SnapshotModal 
+      open={isModalOpen} 
+      title={selectedSnapshot?.title || 'Snapshot'} 
+      summary={selectedSnapshot?.summary || 'This space will hold your reflective summary.'}
+      panels={selectedSnapshot?.panels || []}
+      on:close={closeModal} 
+    />
   </div>
 </MoodAdaptiveLayout>
