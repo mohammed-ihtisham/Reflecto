@@ -71,6 +71,8 @@ GEMINI_API_KEY=your_api_key_here
 GEMINI_MODEL=gemini-2.5-flash
 ```
 
+**Note on Image Generation**: The app uses Gemini's native image generation model (`gemini-2.5-flash-image`), which works with the same API key as text generation. No additional setup required!
+
 Start dev server:
 
 ```bash

@@ -94,7 +94,7 @@ export async function POST({ request }) {
       try {
         const { imageUrl } = await geminiGenerateImage({
           prompt: panel.prompt,
-          model: 'imagen-4.0-generate-001',
+          model: 'gemini-2.5-flash-image',
           numberOfImages: 1
         });
         

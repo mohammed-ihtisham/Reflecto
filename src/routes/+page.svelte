@@ -56,16 +56,14 @@
       messages = [...messages, { role: 'assistant', content: data.assistantMessage }];
     }
     isLoading = false;
-    
-    // Generate snapshot after a few messages (3+ user messages)
-    const userMessageCount = messages.filter(m => m.role === 'user').length;
-    if (userMessageCount >= 3 && snapshots.length === 0) {
-      generateSnapshot();
-    }
   }
 
+  $: userMessageCount = messages.filter(m => m.role === 'user').length;
+  $: canGenerateSnapshot = userMessageCount >= 1 && !isGeneratingSnapshot && snapshots.length === 0;
+
   async function generateSnapshot() {
-    if (isGeneratingSnapshot || messages.length < 2) return;
+    // Require at least one user message to generate snapshot
+    if (isGeneratingSnapshot || userMessageCount < 1) return;
     
     isGeneratingSnapshot = true;
     snapshotError = '';
@@ -158,6 +156,32 @@
     {/if}
 
     <JournalInput on:submit={handleSubmit} />
+
+    {#if userMessageCount >= 1 && snapshots.length === 0}
+      <div class="flex justify-center pt-2">
+        <button
+          type="button"
+          disabled={isGeneratingSnapshot || isLoading}
+          on:click={generateSnapshot}
+          class="px-6 py-3 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-400 text-white font-medium
+                 hover:brightness-105 active:scale-[0.98] transition-all duration-200 
+                 shadow-lg shadow-emerald-500/25 disabled:opacity-50 disabled:cursor-not-allowed
+                 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+        >
+          {#if isGeneratingSnapshot}
+            <span class="flex items-center gap-2">
+              <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Creating Snapshot...
+            </span>
+          {:else}
+            Reflection Done
+          {/if}
+        </button>
+      </div>
+    {/if}
   </div>
 
   <div slot="right" class="flex flex-col h-[calc(100vh-2rem)]">
@@ -197,7 +221,7 @@
           <div class="flex items-center justify-center h-full text-center">
             <div class="text-stone-400 text-sm">
               <p>Your snapshot will appear here</p>
-              <p class="text-xs mt-1">Keep chatting to generate your comic-style snapshot</p>
+              <p class="text-xs mt-1">When you're done reflecting, click "Reflection Done" to create your comic-style snapshot</p>
             </div>
           </div>
         {/if}

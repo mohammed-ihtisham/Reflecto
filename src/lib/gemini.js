@@ -33,66 +33,102 @@ export async function geminiGenerate({
 }
 
 /**
- * Generate an image using Google's Imagen 4 model via REST API
+ * Generate an image using Google's Gemini native image generation
+ * Uses the gemini-2.5-flash-image model via the Gemini API
+ *
  * @param {string} prompt - Text description for the image
  * @param {object} options - Optional configuration
  * @returns {Promise<{imageUrl: string, imageBytes: Buffer}>}
  */
 export async function geminiGenerateImage({
   prompt,
-  model = "imagen-4.0-generate-001",
+  model = "gemini-2.5-flash-image",
   numberOfImages = 1,
 }) {
   const key = env.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_API_KEY not set");
 
-  // Use REST API directly for Imagen models
-  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateImages?key=${key}`;
+  const ai = new GoogleGenAI({ apiKey: key });
+
+  console.log("Generating image with prompt:", prompt);
 
   try {
-    const response = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        prompt: prompt,
-        number_of_images: numberOfImages,
-      }),
+    const response = await ai.models.generateContent({
+      model: model,
+      contents: prompt,
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Imagen API error: ${response.status} - ${errorText}`);
+    // Log the response structure for debugging
+    console.log("Response structure:", JSON.stringify(response, null, 2));
+    console.log("Response type:", typeof response);
+    console.log("Response keys:", Object.keys(response || {}));
+
+    // Also check if there's a raw property or different access method
+    if (response.raw) {
+      console.log(
+        "Response.raw structure:",
+        JSON.stringify(response.raw, null, 2)
+      );
     }
 
-    const data = await response.json();
+    // Check different possible response structures
+    // Structure 1: response.parts (from the example)
+    if (response.parts && Array.isArray(response.parts)) {
+      for (const part of response.parts) {
+        if (part.inlineData) {
+          const imageData = part.inlineData.data;
+          const mimeType = part.inlineData.mimeType || "image/png";
 
-    if (data?.generated_images && data.generated_images.length > 0) {
-      const image = data.generated_images[0];
-      // Image data might be in different formats depending on API version
-      let imageBytes;
-      let base64;
+          const imageBytes = Buffer.from(imageData, "base64");
+          const imageUrl = `data:${mimeType};base64,${imageData}`;
 
-      if (image.image?.image_bytes) {
-        // Binary format
-        imageBytes = Buffer.from(image.image.image_bytes, "base64");
-        base64 = image.image.image_bytes;
-      } else if (image.image_bytes) {
-        imageBytes = Buffer.from(image.image_bytes, "base64");
-        base64 = image.image_bytes;
-      } else if (image.base64) {
-        imageBytes = Buffer.from(image.base64, "base64");
-        base64 = image.base64;
-      } else {
-        throw new Error("Unexpected image format in response");
+          return { imageUrl, imageBytes };
+        } else if (part.text) {
+          console.warn("Received text instead of image:", part.text);
+        }
       }
+    }
 
-      const imageUrl = `data:image/png;base64,${base64}`;
+    // Structure 2: response.candidates[0].content.parts (common Gemini structure)
+    if (response.candidates && Array.isArray(response.candidates)) {
+      for (const candidate of response.candidates) {
+        if (candidate.content?.parts) {
+          for (const part of candidate.content.parts) {
+            if (part.inlineData) {
+              const imageData = part.inlineData.data;
+              const mimeType = part.inlineData.mimeType || "image/png";
+
+              const imageBytes = Buffer.from(imageData, "base64");
+              const imageUrl = `data:${mimeType};base64,${imageData}`;
+
+              return { imageUrl, imageBytes };
+            } else if (part.text) {
+              console.warn("Received text instead of image:", part.text);
+            }
+          }
+        }
+      }
+    }
+
+    // Structure 3: Direct inlineData on response
+    if (response.inlineData) {
+      const imageData = response.inlineData.data;
+      const mimeType = response.inlineData.mimeType || "image/png";
+
+      const imageBytes = Buffer.from(imageData, "base64");
+      const imageUrl = `data:${mimeType};base64,${imageData}`;
+
       return { imageUrl, imageBytes };
     }
 
-    throw new Error("No images generated in response");
+    // If we get here, log the full response for debugging
+    console.error(
+      "Unexpected response structure. Full response:",
+      JSON.stringify(response, null, 2)
+    );
+    throw new Error(
+      "No image data found in response. Check logs for response structure."
+    );
   } catch (error) {
     console.error("Image generation error:", error);
     throw new Error(`Image generation failed: ${error.message}`);
