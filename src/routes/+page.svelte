@@ -9,12 +9,13 @@
   import ComicSnapshot from '$lib/components/snapshot/ComicSnapshot.svelte';
   import SnapshotModal from '$lib/components/ui/SnapshotModal.svelte';
   import { mood as moodStore } from '$lib/stores/mood.js';
+  import { analyzeTone } from '$lib/utils/toneAnalysis.js';
   
   let messages = [
     {
       role: 'assistant',
       content:
-        "Welcome back. Take a slow breath with me. What’s one moment from today you’d like to remember or understand a bit better?"
+        "Welcome back. Take a slow breath with me. What's one moment from today you'd like to remember or understand a bit better?"
     }
   ];
   let isLoading = false;
@@ -31,18 +32,62 @@
   let snapshots = [];
   let isGeneratingSnapshot = false;
   let snapshotError = '';
+  
+  // Typing indicators
+  let isUserTyping = false;
+  let userTypingSpeed = 1;
+  let isAssistantTyping = false;
+  let assistantTypingSpeed = 1;
+  let typingTimeout = null;
+  let keystrokeCount = 0; // Increments on each keystroke to trigger bounce
 
   onMount(() => {
     moodStore.set(currentMood);
   });
 
 
+  function handleTyping(e) {
+    isUserTyping = e.detail.hasText;
+    userTypingSpeed = e.detail.speed;
+    
+    // Clear existing timeout
+    if (typingTimeout) {
+      clearTimeout(typingTimeout);
+    }
+    
+    // Hide typing indicator after 2 seconds of no typing
+    if (e.detail.hasText) {
+      typingTimeout = setTimeout(() => {
+        isUserTyping = false;
+      }, 2000);
+    } else {
+      isUserTyping = false;
+    }
+  }
+
+  function handleKeystroke(e) {
+    // Increment keystroke counter to trigger bounce animation
+    keystrokeCount++;
+    userTypingSpeed = e.detail.speed;
+  }
+
   async function send(content) {
     const clean = (content || '').trim();
     if (!clean) return;
+    
+    // Hide user typing indicator
+    isUserTyping = false;
+    if (typingTimeout) {
+      clearTimeout(typingTimeout);
+    }
+    
     messages = [...messages, { role: 'user', content: clean }];
     isLoading = true;
+    isAssistantTyping = true;
+    // Analyze user message to predict assistant response tone
+    assistantTypingSpeed = analyzeTone(clean);
     errorMsg = '';
+    
     const res = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -52,12 +97,17 @@
     if (!res.ok || data?.error) {
       errorMsg = data?.error || 'Request failed';
       isLoading = false;
+      isAssistantTyping = false;
       return;
     }
     if (data.assistantMessage) {
-      messages = [...messages, { role: 'assistant', content: data.assistantMessage }];
+      // Update speed based on actual assistant message tone
+      assistantTypingSpeed = analyzeTone(data.assistantMessage);
+      const agent = data.replierInput?.agent || 'happyNeutral';
+      messages = [...messages, { role: 'assistant', content: data.assistantMessage, agent }];
     }
     isLoading = false;
+    isAssistantTyping = false;
   }
 
   $: userMessageCount = messages.filter(m => m.role === 'user').length;
@@ -141,16 +191,18 @@
     <SuggestionChips {suggestions} on:select={handleSuggestion} />
 
     <div class="flex-1 min-h-0">
-      <ChatPanel {messages} containerClass="h-full" />
+      <ChatPanel 
+        {messages} 
+        containerClass="h-full"
+        {isUserTyping}
+        {userTypingSpeed}
+        {isAssistantTyping}
+        {assistantTypingSpeed}
+        keystrokeTrigger={keystrokeCount}
+      />
     </div>
 
-    {#if isLoading}
-      <div class="pl-2">
-        <BreathingTypingIndicator label="Reflecting" />
-      </div>
-    {/if}
-
-    <JournalInput on:submit={handleSubmit} />
+    <JournalInput on:submit={handleSubmit} on:typing={handleTyping} on:keystroke={handleKeystroke} />
 
     {#if userMessageCount >= 1 && snapshots.length === 0}
       <div class="flex justify-center pt-2">
