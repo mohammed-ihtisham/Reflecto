@@ -6,7 +6,7 @@
   import JournalInput from '$lib/components/journal/JournalInput.svelte';
   import SuggestionChips from '$lib/components/ui/SuggestionChips.svelte';
   import BreathingTypingIndicator from '$lib/components/ui/BreathingTypingIndicator.svelte';
-  import SnapshotPanel from '$lib/components/ui/SnapshotPanel.svelte';
+  import ComicSnapshot from '$lib/components/snapshot/ComicSnapshot.svelte';
   import SnapshotModal from '$lib/components/ui/SnapshotModal.svelte';
   import { mood as moodStore } from '$lib/stores/mood.js';
   
@@ -20,7 +20,8 @@
   let isLoading = false;
   let errorMsg = '';
   let currentMood = 'thoughtful';
-  let selectedSnapshot = null;
+  let snapshotMeta = null;
+  let selectedPanel = null;
   let isModalOpen = false;
   let suggestions = [
     'One moment that felt meaningful today?',
@@ -34,6 +35,7 @@
   onMount(() => {
     moodStore.set(currentMood);
   });
+
 
   async function send(content) {
     const clean = (content || '').trim();
@@ -62,40 +64,40 @@
   $: canGenerateSnapshot = userMessageCount >= 1 && !isGeneratingSnapshot && snapshots.length === 0;
 
   async function generateSnapshot() {
-    // Require at least one user message to generate snapshot
     if (isGeneratingSnapshot || userMessageCount < 1) return;
-    
+
     isGeneratingSnapshot = true;
     snapshotError = '';
-    
+    selectedPanel = null;
+
     try {
       const res = await fetch('/api/snapshot', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ history: messages })
       });
-      
+
       const data = await res.json();
-      
+
       if (!res.ok || data?.error) {
         snapshotError = data?.error || 'Snapshot generation failed';
         isGeneratingSnapshot = false;
         return;
       }
-      
+
       if (data.panels && data.panels.length > 0) {
         snapshots = data.panels.map((panel, i) => ({
           id: i + 1,
+          index: i,
           title: panel.title,
           subtitle: panel.mood,
+          mood: panel.mood,
           imageUrl: panel.imageUrl,
-          mood: panel.mood
+          description: panel.description || panel.prompt || ''
         }));
-        // Store the full snapshot data for the modal
-        selectedSnapshot = { 
+        snapshotMeta = {
           title: 'Snapshot of the Day',
-          summary: data.summary, 
-          panels: data.panels 
+          summary: data.summary || 'A reflective moment captured.'
         };
       }
     } catch (err) {
@@ -114,22 +116,15 @@
     send(e.detail.value);
   }
 
-  function openSnapshot(s) {
-    // Use the stored snapshot data (already set when snapshot was generated)
-    // If not available, create a basic one
-    if (!selectedSnapshot || !selectedSnapshot.panels) {
-      selectedSnapshot = {
-        title: 'Snapshot of the Day',
-        summary: 'A moment captured in reflection.',
-        panels: []
-      };
-    }
+  function openPanelModal(panel) {
+    if (!panel) return;
+    selectedPanel = panel;
     isModalOpen = true;
   }
 
   function closeModal() {
     isModalOpen = false;
-    selectedSnapshot = null;
+    selectedPanel = null;
   }
 </script>
 
@@ -204,18 +199,11 @@
             {snapshotError}
           </div>
         {:else if snapshots.length > 0}
-          <div class="grid grid-cols-2 sm:grid-cols-3 content-start gap-2 sm:gap-3">
-            {#each snapshots as s, i}
-              <div class="animate-fade-delayed" style="animation-delay: {i * 60}ms">
-                <SnapshotPanel 
-                  title={s.title} 
-                  subtitle={s.subtitle} 
-                  imageUrl={s.imageUrl}
-                  tilt={(i % 2 === 0 ? -0.8 : 0.6)} 
-                  onClick={() => openSnapshot(s)} 
-                />
-              </div>
-            {/each}
+          <div class="h-full">
+            <ComicSnapshot
+              panels={snapshots}
+              on:select={(event) => openPanelModal(event.detail.panel)}
+            />
           </div>
         {:else}
           <div class="flex items-center justify-center h-full text-center">
@@ -228,11 +216,11 @@
       </div>
     </div>
     <SnapshotModal 
-      open={isModalOpen} 
-      title={selectedSnapshot?.title || 'Snapshot'} 
-      summary={selectedSnapshot?.summary || 'This space will hold your reflective summary.'}
-      panels={selectedSnapshot?.panels || []}
-      on:close={closeModal} 
+      open={isModalOpen}
+      title={snapshotMeta?.title || 'Snapshot'}
+      summary={snapshotMeta?.summary || 'This space will hold your reflective summary.'}
+      panel={selectedPanel}
+      on:close={closeModal}
     />
   </div>
 </MoodAdaptiveLayout>

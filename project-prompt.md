@@ -1,254 +1,179 @@
-You are upgrading an existing Svelte + Tailwind CSS codebase for an app called Reflecto.
-Reflecto is a multimodal journaling companion that blends conversational dialogue, emotional awareness, and visual storytelling. It never pretends to be human; it acts as a mirror, a facilitator, and a guide for reflective thinking. Your task is to redesign the entire frontend to be modern, sleek, emotionally adaptive, expressive, and uniquely interactive, while remaining calm, humane, and non-performative.
+You are editing a Svelte + Tailwind project for a journaling app called Reflecto.
+
+Goal
+-----
+Refactor the "Snapshot of the day" comic view so panels are laid out like a real comic page instead of a rigid 3-row grid. Right now the layout logic only supports 3 rows where each row may have 1–3 equally sized panels. I want a small layout engine that can pick from a set of comic-style templates and render panels with different widths and heights.
+
+Context
+--------
+- There is a component that renders the comic / snapshot cards (look for files named something like `SnapshotGrid.svelte`, `ComicSnapshot.svelte`, or `SnapshotOfTheDay.svelte`). That is the component you should modify.
+- Each panel has (at least) an image and a title (e.g. "Flash of Yellow", "Dream Car Detail").
+- Panels are ordered; panel[0] should appear in the top-left-most position, then left-to-right, top-to-bottom according to the chosen layout.
+
+What to implement
+------------------
+1. **Introduce a layout config file**
+
+Create a new file, for example `src/lib/comicLayouts.ts`, that exports a small layout library:
+
+```ts
+export type ComicPanelLayout = {
+  rows: number;
+  cols: number;
+  areas: string[]; // grid-template-areas row by row
+  panelAreas: string[]; // area name for each panel index (0..n-1)
+};
+
+export const COMIC_LAYOUTS: Record<number, ComicPanelLayout> = {
+  // 1 panel: full page
+  1: {
+    rows: 1,
+    cols: 1,
+    areas: ["a"],
+    panelAreas: ["a"],
+  },
+
+  // 2 panels: stacked
+  2: {
+    rows: 2,
+    cols: 1,
+    areas: ["a", "b"],
+    panelAreas: ["a", "b"],
+  },
+
+  // 3 panels: one wide on top, two under it
+  3: {
+    rows: 2,
+    cols: 2,
+    areas: [
+      "a a",
+      "b c",
+    ],
+    panelAreas: ["a", "b", "c"],
+  },
+
+  // 4 panels: 2x2 grid
+  4: {
+    rows: 2,
+    cols: 2,
+    areas: [
+      "a b",
+      "c d",
+    ],
+    panelAreas: ["a", "b", "c", "d"],
+  },
+
+  // 5 panels example: big hero on left, 4 smaller on right
+  5: {
+    rows: 3,
+    cols: 3,
+    areas: [
+      "a a b",
+      "a a c",
+      "d e e",
+    ],
+    panelAreas: ["a", "b", "c", "d", "e"],
+  },
+
+  // 6 panels example: like a real comic page with mix of sizes
+  6: {
+    rows: 3,
+    cols: 3,
+    areas: [
+      "a a b",
+      "c d d",
+      "e f f",
+    ],
+    panelAreas: ["a", "b", "c", "d", "e", "f"],
+  },
+
+  // You can add more layouts for 7, 8 panels if useful.
+};
+Requirements for this file:
+
+Each layout is a realistic comic-like composition (mix of wide and tall panels, not just uniform grid).
+
+areas must be valid grid-template-areas strings.
+
+panelAreas[i] must correspond to a named area that exists in areas.
+
+Refactor the comic component to use CSS Grid + templates
+
+In the comic/snapshot component:
 
-🎯 Design Philosophy & Constraints
+Accept panels: Panel[] as a prop (or use whatever prop already exists).
 
-Use these research-based principles throughout:
+Compute the layout based on panels.length:
 
-1. Critical, Non-Biased Reflection
+ts
+Copy code
+import { COMIC_LAYOUTS } from "$lib/comicLayouts";
 
-The UI should support honest, objective introspection.
+const DEFAULT_LAYOUT = /* fallback layout with simple equal grid */;
 
-Avoid emotionally manipulative or “warm human mimicry.”
+$: layout = COMIC_LAYOUTS[panels.length] ?? DEFAULT_LAYOUT;
+Render a container with CSS Grid using the layout:
 
-Visual language should be grounding, not cutesy or anthropomorphic.
+svelte
+Copy code
+<div
+  class="grid w-full h-full rounded-3xl bg-slate-900/80 p-4 shadow-lg"
+  style="
+    grid-template-rows: repeat({layout.rows}, 1fr);
+    grid-template-columns: repeat({layout.cols}, 1fr);
+    grid-template-areas: {layout.areas.map(row => `'${row}'`).join(' ')};
+  "
+>
+  {#each panels as panel, index}
+    <div
+      class="relative rounded-3xl overflow-hidden shadow-md hover:shadow-xl transition-all"
+      style={`grid-area: ${layout.panelAreas[index]};`}
+    >
+      <!-- existing panel content (image + title badge, etc.) goes here -->
+    </div>
+  {/each}
+</div>
+The key thing is that each panel gets its grid-area from the layout config, so we’re no longer hard-coding “3 rows with 1–3 panels”.
 
-2. Digital Support, Not Human Substitution
+Aspect ratio + responsiveness
 
-Avoid avatars or features that imply “personhood.”
+Wrap the whole comic page in a container that preserves an aspect ratio similar to a printed comic page, for example:
 
-Focus on tools (visuals, pacing, multimodal summaries) over “companionship.”
+svelte
+Copy code
+<div class="relative w-full max-w-xl mx-auto">
+  <div class="aspect-[3/4]">
+    <!-- grid from step 2 goes here -->
+  </div>
+</div>
+On narrow screens (< md), it’s okay to fall back to simpler stacked layout:
 
-3. Reciprocity & Pacing
+For sm: and up, use the complex template layout.
 
-Slow, intentional animations.
+For base (mobile), override with grid-template-rows/columns that effectively stack into 1 or 2 columns, or simply use flex flex-col and ignore grid-template-areas.
 
-Messages should encourage thinking, not just reacting.
+Implement a simple breakpoint logic in Svelte using CSS classes or a @media query in a .scss/.css file so that mobile is readable.
 
-Prioritize low-pressure re-engagement.
+Preserve existing styling
 
-4. Transparency & Non-Pretending
+Keep the current visual styling of each panel (rounded corners, drop shadows, titles, hover effect).
 
-Make it visually obvious that the AI is a reflective system, not a human.
+Do not change any business logic; only refactor layout and container styling.
 
-UI elements should feel structured, crafted, and “designed,” not “alive.”
+Ensure that if there are more panels than defined layouts (e.g., 7+ and we haven’t added templates yet), we fall back to a simple responsive grid (e.g., grid-cols-2 md:grid-cols-3) so nothing breaks.
 
-5. Depth Through Consistency
+Testing
 
-Create a visual rhythm that gently invites return.
+Add a quick dev/test view (or Storybook story if the project uses it) that renders the comic with 1, 2, 3, 4, 5, and 6 panels so I can visually confirm layouts.
 
-Subtle ambient motion, calm breathing effects, and adaptive theming promote familiarity.
+Make sure the panels fill the full height and width of the comic area without weird gaps.
 
-6. No Glazing
+Please:
 
-Avoid over-glossy “positive” color palettes and overly-affirmative design patterns.
+Identify and refactor the correct component.
 
-Use minimalistic, honest, grounded effects.
+Create the new comicLayouts config file.
 
-🪞 Core Experience to Build
-➤ Left Side: Conversational Canvas
+Replace the old "3 rows, 1–3 panels per row" logic with the template-based layout.
 
-A slow, journaling-centric chat space that feels like a modern reflective studio.
-
-Implement:
-
-Dynamic mood header (e.g., “You seem thoughtful today”)
-
-Glassmorphic chat bubbles
-
-Emotion-adaptive color accents
-
-Word-by-word message reveals
-
-Subtle breathing-style typing indicator
-
-Input bar that gently expands on focus (no bright flares)
-
-Idle “guided suggestion prompts” above input
-
-Micro-interactions:
-
-subtle hover tilt
-
-soft ripple on click
-
-gradient border glow tied to emotional valence
-
-The chat should feel more like a mindful conversation space than a chat app.
-
-➤ Right Side: Visual Reflection Canvas
-
-A dynamic diary pane that produces comic-style “Snapshot of the Day” panels.
-
-Implement:
-
-A 6-panel grid with soft shadows + staggering fade-in
-
-Glass panels with slight parallax movement
-
-Panels should appear like Polaroids or sketch frames
-
-Mood-adaptive strokes (greens, lavenders, teals, gold accents depending on tone)
-
-Clicking a panel → opens modal with:
-
-Emoji emotional tags
-
-Text summary
-
-Room for image generation later
-
-Optional:
-
-“Shuffle comic layout” button with elastic animation
-
-Drag-and-drop rearrangement
-
-This pane should feel like a living illustrated diary, not a sterile dashboard.
-
-🎨 Visual Language Requirements
-Typography
-
-Base: Inter
-
-Reflective/emotional moments: EB Garamond Italic
-
-Empathetic notes or summaries: Poppins Semibold (used sparingly)
-
-Typefaces should modulate gradually based on emotional tone (valence, depth, pacing).
-
-Color & Mood System
-
-Use slow-transitioning diagonally-animated gradients:
-
-Happy/Neutral: muted greens + warm yellow accents
-
-Reflective/Somber: lavender + dusty purple
-
-Motivational: teal + subtle gold
-
-Low-Energy: deep navy + forest green
-
-The background gradient slowly breathes, shifting only slightly between messages.
-
-Animations
-
-Use gentle, meditative motion:
-
-Chat bubble fade-up + 2–3px lift
-
-Typing dots that breathe (slower for deep reflection)
-
-Panels that pop in with 40ms stagger
-
-Input bar pulse when unfocused
-
-Brief hesitation before deep questions
-
-Avoid fast or “playful” animations; stay grounded and calm.
-
-🔧 Implementation Details
-
-Use:
-
-Svelte transitions (fade, slide, scale)
-
-Tailwind CSS with custom animations
-
-Backdrops + blurs for glassmorphism
-
-CSS variables for mood colors
-
-Framer-motion-like timing (if applicable)
-
-Add a global “emotion state variable” that affects:
-
-gradient
-
-accent colors
-
-bubble border
-
-animation speed
-
-typeface style
-
-🧪 Evaluation Metrics to Design Around
-
-Build UI components that support these metrics programmatically:
-
-Reflective Depth Index → Show more EB Garamond, slower animations
-
-Suggestiveness Score → Reduce bold fonts, warm colors if score rises
-
-User-Centric Question Ratio → Chat bubble coloration subtlety
-
-Emoji Emotional Accuracy Rate → Panel mood visualization clarity
-
-Critical Thinking Ratio → Emphasize non-directive, open-ended phrasing
-
-The UI must visually reinforce autonomy, reflection, and honesty.
-
-🧩 Your Task: Generate Code + Components
-
-Based on everything above, produce:
-
-1. A complete redesign of the Reflecto home screen layout
-
-chat left, visual canvas right
-
-modern, minimal, atmospheric
-
-2. New components
-
-<MoodHeader />
-
-<ReflectiveChatBubble />
-
-<BreathingTypingIndicator />
-
-<SuggestionChips />
-
-<SnapshotPanel />
-
-<SnapshotModal />
-
-<AnimatedGradientBackground />
-
-<MoodAdaptiveLayout />
-
-3. Tailwind utility classes + custom animations
-
-breathing
-
-soft parallax
-
-gradient drift
-
-delayed fade
-
-4. Revised global theme tokens
-
-color variables
-
-typography scales
-
-mood → motion mapping
-
-5. Clean, modular Svelte architecture
-
-Follow component boundaries, state stores, transitions, and props cleanly.
-
-🧷 Output Requirements
-
-Provide the new folder/component structure
-
-Generate Svelte component code
-
-Generate Tailwind config extensions
-
-Include markdown commentary explaining key decisions
-
-Apply all the emotional, reflective, and anti-glazing principles
-
-Make it beautiful, modern, calm, and deeply human-aware without pretending to be human
+Keep the code clean and well-commented so I can tweak the layouts later.

@@ -3,7 +3,7 @@
   export let open = false;
   export let title = 'Snapshot';
   export let summary = 'A reflective summary will appear here.';
-  export let panels = [];
+  export let panel = null;
   const dispatch = createEventDispatcher();
   function close() {
     dispatch('close');
@@ -30,23 +30,26 @@
         <div class="font-serif italic text-slate-800 leading-relaxed">{summary}</div>
       </div>
 
-      {#if panels && panels.length > 0}
-        <div class="grid grid-cols-2 gap-3 mb-4">
-          {#each panels as panel}
-            <div class="rounded-xl overflow-hidden border border-slate-200 shadow-sm">
-              {#if panel.imageUrl}
-                <img src={panel.imageUrl} alt={panel.title} class="w-full aspect-[4/3] object-cover" />
-              {:else}
-                <div class="w-full aspect-[4/3] bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
-                  <span class="text-slate-400 text-xs">Loading...</span>
-                </div>
-              {/if}
-              <div class="p-2 bg-white">
-                <div class="text-xs text-stone-500 uppercase tracking-wide">{panel.mood || ''}</div>
-                <div class="text-sm font-semibold">{panel.title}</div>
-              </div>
+      {#if panel}
+        <div class="rounded-3xl border border-slate-200 shadow-xl overflow-hidden mb-2">
+          {#if panel.imageUrl}
+            <img src={panel.imageUrl} alt={panel.title} class="w-full aspect-[4/3] object-cover" />
+          {:else}
+            <div class="w-full aspect-[4/3] bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
+              <span class="text-slate-400 text-xs">Image unavailable</span>
             </div>
-          {/each}
+          {/if}
+          <div class="p-4 bg-white space-y-2">
+            {#if panel.mood}
+              <div class="text-xs uppercase tracking-wide text-stone-500">{panel.mood}</div>
+            {/if}
+            <div class="text-lg font-semibold">{panel.title}</div>
+            <p class="text-sm text-slate-600 leading-relaxed">{panel.description || 'A reflective note about this panel.'}</p>
+          </div>
+        </div>
+      {:else}
+        <div class="rounded-2xl border border-dashed border-slate-200 p-4 text-sm text-slate-500 text-center">
+          Select a panel to explore the thought behind it.
         </div>
       {/if}
     </div>

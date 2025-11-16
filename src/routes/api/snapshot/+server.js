@@ -11,6 +11,10 @@ import { geminiGenerate, geminiGenerateImage } from '$lib/gemini.js';
 export async function POST({ request }) {
   const body = await request.json();
   const { history } = body || {};
+  const requestedPanelCount = Number.isInteger(body?.panelCount) ? body.panelCount : undefined;
+  const layoutDescription = (body?.layoutDescription || '').trim();
+  const randomDefaultPanelCount = Math.floor(Math.random() * 3) + 4; // 4-6 panels by default
+  const normalizedPanelCount = Math.min(Math.max(requestedPanelCount ?? randomDefaultPanelCount, 1), 8);
 
   if (!Array.isArray(history) || history.length === 0) {
     return json({ error: 'history array is required' }, { status: 400 });
@@ -18,7 +22,7 @@ export async function POST({ request }) {
 
   try {
     // Step 1: Generate a summary and comic panel descriptions from the conversation
-    const summaryPrompt = `Based on this journaling conversation, create a comic-style "snapshot of the day" with 4-6 panels.
+    const summaryPrompt = `Based on this journaling conversation, create a comic-style "snapshot of the day" with exactly ${normalizedPanelCount} panels.
     
     Analyze the conversation and identify:
     1. Key moments, emotions, or themes
@@ -27,12 +31,12 @@ export async function POST({ request }) {
     
     Generate a JSON response with:
     - summary: A brief 2-3 sentence summary of the day
-    - panels: An array of 4-6 panel descriptions, each with:
+    - panels: An array of ${normalizedPanelCount} panel descriptions, each with:
       - title: A short title for the panel (2-4 words)
       - prompt: A detailed image generation prompt in comic book style (include "comic book style", "comic panel", "vibrant colors", "dynamic lines")
       - mood: The emotional tone (e.g., "joyful", "reflective", "challenging", "peaceful")
     
-    Make the prompts vivid and specific, suitable for generating comic-style illustrations.`;
+    Make the prompts vivid and specific, suitable for generating comic-style illustrations.${layoutDescription ? ` Layout info: ${layoutDescription}.` : ''}`;
 
     const contents = history.map((m) => ({ 
       role: m.role === 'user' ? 'user' : 'model', 
@@ -90,7 +94,8 @@ export async function POST({ request }) {
 
     // Step 2: Generate images for each panel
     const panels = [];
-    for (const panel of snapshotData.panels || []) {
+    const panelSources = (snapshotData.panels || []).slice(0, normalizedPanelCount);
+    for (const panel of panelSources) {
       try {
         const { imageUrl } = await geminiGenerateImage({
           prompt: panel.prompt,
@@ -101,7 +106,8 @@ export async function POST({ request }) {
         panels.push({
           title: panel.title,
           imageUrl: imageUrl,
-          mood: panel.mood
+          mood: panel.mood,
+          description: panel.prompt
         });
       } catch (error) {
         console.error(`Failed to generate image for panel "${panel.title}":`, error);
@@ -110,6 +116,7 @@ export async function POST({ request }) {
           title: panel.title,
           imageUrl: null,
           mood: panel.mood,
+          description: panel.prompt,
           error: 'Image generation failed'
         });
       }
