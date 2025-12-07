@@ -39,7 +39,8 @@ export const COMIC_LAYOUTS: Record<number, ComicPanelLayout> = {
   6: {
     rows: 3,
     cols: 3,
-    areas: ['a a b', 'c d d', 'e f f'],
+    // Row 1: two panels, Row 2: one spanning all columns, Row 3: three panels
+    areas: ['a b .', 'c c c', 'd e f'],
     panelAreas: ['a', 'b', 'c', 'd', 'e', 'f']
   },
   7: {

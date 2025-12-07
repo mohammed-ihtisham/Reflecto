@@ -10,14 +10,20 @@ import { geminiGenerate, geminiGenerateImage } from '$lib/gemini.js';
  */
 export async function POST({ request }) {
   const body = await request.json();
-  const { history } = body || {};
+  const { history, reflectionText } = body || {};
   const requestedPanelCount = Number.isInteger(body?.panelCount) ? body.panelCount : undefined;
   const layoutDescription = (body?.layoutDescription || '').trim();
   const randomDefaultPanelCount = Math.floor(Math.random() * 3) + 4; // 4-6 panels by default
   const normalizedPanelCount = Math.min(Math.max(requestedPanelCount ?? randomDefaultPanelCount, 1), 8);
+  const generateImages = body?.generateImages !== false;
+  const cleanReflection = (reflectionText || '').trim();
+  const baseHistory = Array.isArray(history) ? history : [];
+  const combinedHistory = cleanReflection
+    ? [...baseHistory, { role: 'user', content: `Reflection: ${cleanReflection}` }]
+    : baseHistory;
 
-  if (!Array.isArray(history) || history.length === 0) {
-    return json({ error: 'history array is required' }, { status: 400 });
+  if (combinedHistory.length === 0) {
+    return json({ error: 'history or reflection text is required' }, { status: 400 });
   }
 
   try {
@@ -38,7 +44,7 @@ export async function POST({ request }) {
     
     Make the prompts vivid and specific, suitable for generating comic-style illustrations.${layoutDescription ? ` Layout info: ${layoutDescription}.` : ''}`;
 
-    const contents = history.map((m) => ({ 
+    const contents = combinedHistory.map((m) => ({ 
       role: m.role === 'user' ? 'user' : 'model', 
       parts: [{ text: m.content }] 
     }));
@@ -92,9 +98,22 @@ export async function POST({ request }) {
       };
     }
 
-    // Step 2: Generate images for each panel
-    const panels = [];
+    // Step 2: Optionally generate images for each panel
     const panelSources = (snapshotData.panels || []).slice(0, normalizedPanelCount);
+    if (!generateImages) {
+      return json({
+        summary: snapshotData.summary || 'A day of reflection.',
+        panels: panelSources.map((panel) => ({
+          title: panel.title,
+          imageUrl: null,
+          mood: panel.mood,
+          description: panel.prompt
+        })),
+        success: true
+      });
+    }
+
+    const panels = [];
     for (const panel of panelSources) {
       try {
         const { imageUrl } = await geminiGenerateImage({

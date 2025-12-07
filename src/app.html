@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -65,53 +65,53 @@
     <script src="https://cdn.tailwindcss.com"></script>
     %sveltekit.head%
   </head>
-  <body class="bg-slate-950 text-slate-100 antialiased">
+  <body class="bg-slate-50 text-slate-900 antialiased overflow-hidden">
     <style>
       :root {
         --accent: 99 102 241; /* thoughtful default */
-        --accent2: 16 185 129;
-        --bg-from: 2 6 23;
-        --bg-to: 30 41 59;
+        --accent2: 20 184 166;
+        --bg-from: 247 248 252;
+        --bg-to: 234 239 248;
         --glow: 99 102 241;
         --anim-speed: 1;
       }
       [data-mood='happy'] {
-        --accent: 20 184 166;
-        --accent2: 50 180 90;
-        --bg-from: 18 24 38;
-        --bg-to: 6 95 70;
+        --accent: 34 197 94;
+        --accent2: 59 130 246;
+        --bg-from: 245 247 252;
+        --bg-to: 228 241 233;
         --glow: 16 185 129;
         --anim-speed: 1.0;
       }
       [data-mood='reflective'] {
-        --accent: 147 112 219;
-        --accent2: 91 76 175;
-        --bg-from: 9 9 14;
-        --bg-to: 36 24 54;
-        --glow: 147 112 219;
+        --accent: 168 85 247;
+        --accent2: 14 165 233;
+        --bg-from: 248 244 255;
+        --bg-to: 233 244 255;
+        --glow: 168 85 247;
         --anim-speed: 0.9;
       }
       [data-mood='motivational'] {
         --accent: 20 184 166;
-        --accent2: 234 179 8;
-        --bg-from: 10 12 20;
-        --bg-to: 5 150 105;
+        --accent2: 251 191 36;
+        --bg-from: 248 250 252;
+        --bg-to: 236 254 255;
         --glow: 20 184 166;
         --anim-speed: 1.05;
       }
       [data-mood='low'] {
-        --accent: 30 58 138;
-        --accent2: 21 128 61;
-        --bg-from: 2 6 23;
-        --bg-to: 15 23 42;
-        --glow: 30 58 138;
+        --accent: 59 130 246;
+        --accent2: 52 211 153;
+        --bg-from: 243 244 246;
+        --bg-to: 232 234 238;
+        --glow: 59 130 246;
         --anim-speed: 0.85;
       }
       [data-mood='thoughtful'] {
         --accent: 99 102 241;
-        --accent2: 16 185 129;
-        --bg-from: 2 6 23;
-        --bg-to: 30 41 59;
+        --accent2: 20 184 166;
+        --bg-from: 247 248 252;
+        --bg-to: 234 239 248;
         --glow: 99 102 241;
         --anim-speed: 0.95;
       }

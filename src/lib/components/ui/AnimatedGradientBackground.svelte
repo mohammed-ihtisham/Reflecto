@@ -19,7 +19,7 @@
   ></div>
   <div
     class="absolute inset-0"
-    style="background: radial-gradient(120% 120% at 50% 50%, transparent 62%, rgba(2,6,23,0.75) 100%)"
+    style="background: radial-gradient(120% 120% at 50% 50%, transparent 65%, rgba(255,255,255,0.85) 100%)"
   ></div>
 </div>
 

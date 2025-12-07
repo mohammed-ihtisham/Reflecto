@@ -48,13 +48,12 @@
 
 <div
   class="max-w-[80%] md:max-w-[70%] rounded-3xl border transition-all duration-300 backdrop-blur-xl will-change-transform
-    {isUser ? 'bg-white/8' : 'bg-white/6'}"
+    {isUser ? 'bg-white/90' : 'bg-white/80'}"
   style="
-    border-color: rgba(255,255,255,0.12);
+    border-color: rgba(15,23,42,0.08);
     box-shadow:
-      0 0 0 1px rgba(var(--accent),0.10),
-      0 10px 30px rgba(0,0,0,0.30),
-      0 0 24px rgba(var(--glow),0.12);
+      0 0 0 1px rgba(var(--accent),0.08),
+      0 10px 30px rgba(15,23,42,0.08);
     padding: 16px 20px;
     transform-origin: {isUser ? '100% 50%' : '0% 50%'};
   "
@@ -63,7 +62,7 @@
     {#each [0, 1, 2] as i}
       <span
         bind:this={dotRefs[i]}
-        class="block h-2 w-2 rounded-full {isUser ? 'bg-white/70' : 'bg-emerald-400/80'} drop-shadow-sm typing-dot"
+        class="block h-2 w-2 rounded-full {isUser ? 'bg-slate-500/70' : 'bg-emerald-500/80'} drop-shadow-sm typing-dot"
         style="
           animation: pulse-dot {basePulseDuration}ms ease-in-out infinite;
           animation-delay: {i * 150}ms;

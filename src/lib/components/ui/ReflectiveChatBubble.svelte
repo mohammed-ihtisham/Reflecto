@@ -10,7 +10,7 @@
   // Get gradient background based on agent type
   function getAgentGradient(agentType) {
     if (!agentType) {
-      return 'rgba(255,255,255,0.06)';
+      return 'rgba(255,255,255,0.9)';
     }
     
     switch (agentType) {
@@ -28,7 +28,7 @@
     }
   }
   
-  $: backgroundStyle = isUser ? 'rgba(255,255,255,0.08)' : getAgentGradient(agent);
+  $: backgroundStyle = isUser ? 'rgba(255,255,255,0.9)' : getAgentGradient(agent);
   
   // Get typography classes based on agent type
   function getAgentTypography(agentType) {
@@ -58,18 +58,17 @@
   class="max-w-[80%] md:max-w-[70%] whitespace-pre-wrap leading-relaxed rounded-3xl border transition-all duration-500 backdrop-blur-xl will-change-transform hover:-translate-y-[2px]"
   style="
     background: {backgroundStyle};
-    border-color: rgba(255,255,255,0.12);
+    border-color: rgba(15,23,42,0.08);
     box-shadow:
-      0 0 0 1px rgba(var(--accent),0.10),
-      0 10px 30px rgba(0,0,0,0.30),
-      0 0 24px rgba(var(--glow),0.12);
+      0 10px 30px rgba(15,23,42,0.08),
+      0 0 0 1px rgba(var(--accent),0.08);
     transform-origin: {isUser ? '100% 50%' : '0% 50%'};
   "
 >
   {#if role}
-    <div class="px-4 pt-3 text-[10px] uppercase tracking-wide text-slate-400">{isUser ? 'you' : role}</div>
+    <div class="px-4 pt-3 text-[10px] uppercase tracking-wide text-slate-500">{isUser ? 'you' : role}</div>
   {/if}
-  <div class="px-4 pb-3 md:px-5 md:pb-4 text-slate-100 transition-all duration-500 ease-in-out {typographyClass}">
+  <div class="px-4 pb-3 md:px-5 md:pb-4 text-slate-800 transition-all duration-500 ease-in-out {typographyClass}">
     {#each words as w, i}
       <span
         class="inline-block animate-fade-delayed"

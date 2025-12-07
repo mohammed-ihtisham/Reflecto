@@ -4,46 +4,46 @@ export const mood = writable('thoughtful'); // 'happy' | 'reflective' | 'motivat
 
 const MOOD_TOKEN_MAP = {
   happy: {
-    accent: '180 75 60', // teal-ish
-    accent2: '50 180 90', // green accent
-    bgFrom: '18 24 38', // slate-900-ish
-    bgTo: '6 95 70', // emerald-700-ish
+    accent: '34 197 94', // emerald-500
+    accent2: '59 130 246', // blue-500
+    bgFrom: '245 247 252', // light gray-blue
+    bgTo: '228 241 233', // soft green tint
     borderGlow: '16 185 129',
     typeScale: '1.0',
     animationSpeed: '1.0'
   },
   reflective: {
-    accent: '147 112 219', // lavender
-    accent2: '91 76 175', // dusty purple
-    bgFrom: '9 9 14', // near black
-    bgTo: '36 24 54', // deep purple
-    borderGlow: '147 112 219',
+    accent: '168 85 247', // violet-500
+    accent2: '14 165 233', // sky-500
+    bgFrom: '248 244 255', // lavender tint
+    bgTo: '233 244 255', // pale blue
+    borderGlow: '168 85 247',
     typeScale: '1.02',
     animationSpeed: '0.9'
   },
   motivational: {
     accent: '20 184 166', // teal
-    accent2: '234 179 8', // gold
-    bgFrom: '10 12 20',
-    bgTo: '5 150 105',
+    accent2: '251 191 36', // amber-400
+    bgFrom: '248 250 252', // slate-50
+    bgTo: '236 254 255', // sky-50/teal tint
     borderGlow: '20 184 166',
     typeScale: '1.0',
     animationSpeed: '1.05'
   },
   low: {
-    accent: '30 58 138', // deep navy
-    accent2: '21 128 61', // forest green
-    bgFrom: '2 6 23', // slate-950
-    bgTo: '15 23 42', // slate-900
-    borderGlow: '30 58 138',
+    accent: '59 130 246', // blue
+    accent2: '52 211 153', // green-400
+    bgFrom: '243 244 246', // gray-100
+    bgTo: '232 234 238', // cool gray
+    borderGlow: '59 130 246',
     typeScale: '0.98',
     animationSpeed: '0.85'
   },
   thoughtful: {
     accent: '99 102 241', // indigo-500
-    accent2: '16 185 129', // emerald-500
-    bgFrom: '2 6 23', // slate-950
-    bgTo: '30 41 59', // slate-800
+    accent2: '20 184 166', // teal-500
+    bgFrom: '247 248 252', // soft paper
+    bgTo: '234 239 248', // subtle blue-gray
     borderGlow: '99 102 241',
     typeScale: '1.0',
     animationSpeed: '0.95'

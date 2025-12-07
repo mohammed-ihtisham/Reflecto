@@ -82,9 +82,9 @@
       type="text"
       value={value}
       placeholder={placeholder}
-      class="w-full rounded-full bg-white/5 border border-white/10 text-slate-100 placeholder:text-slate-400
-             px-5 py-3 pr-12 transition-all duration-200
-             focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+      class="w-full rounded-full bg-white border border-slate-200 text-slate-800 placeholder:text-slate-400
+             px-5 py-3 pr-12 transition-all duration-200 shadow-sm
+             focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
       on:input={handleInput}
       on:keydown={handleKeydown}
     />
