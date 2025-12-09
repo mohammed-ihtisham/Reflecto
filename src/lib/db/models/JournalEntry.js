@@ -13,10 +13,18 @@ export class JournalEntry {
    * @param {Date} date - Date of the entry
    * @param {string} content - Journal entry content
    * @param {Array} chatMessages - Chat conversation history
+   * @param {Array} comicImageUrls - Array of GCS URLs for comic images
    * @param {Object} metadata - Optional metadata (mood, etc.)
    * @returns {Promise<Object>} Created/updated journal entry
    */
-  static async upsert(userId, date, content, chatMessages = [], metadata = {}) {
+  static async upsert(
+    userId,
+    date,
+    content,
+    chatMessages = [],
+    comicImageUrls = [],
+    metadata = {}
+  ) {
     const db = await connectToDatabase();
     const entries = db.collection(COLLECTION_NAME);
 
@@ -33,6 +41,7 @@ export class JournalEntry {
       date: entryDate,
       content: content.trim(),
       chatMessages: Array.isArray(chatMessages) ? chatMessages : [],
+      comicImageUrls: Array.isArray(comicImageUrls) ? comicImageUrls : [],
       ...metadata,
       updatedAt: new Date(),
       createdAt: new Date(), // Will be set on insert, preserved on update
@@ -47,6 +56,7 @@ export class JournalEntry {
         $set: {
           content: entryDoc.content,
           chatMessages: entryDoc.chatMessages,
+          comicImageUrls: entryDoc.comicImageUrls,
           ...metadata,
           updatedAt: entryDoc.updatedAt,
         },

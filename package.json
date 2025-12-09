@@ -19,6 +19,7 @@
     "vite": "^5.4.0"
   },
   "dependencies": {
+    "@google-cloud/storage": "^7.18.0",
     "@google/genai": "^0.2.0",
     "bcryptjs": "^3.0.3",
     "cookie": "^1.1.1",

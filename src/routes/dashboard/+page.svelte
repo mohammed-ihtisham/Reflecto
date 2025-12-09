@@ -222,6 +222,26 @@ $: leadingBlank = new Date(currentYear, currentMonth, 1).getDay();
             }
           ];
         }
+        
+        // Restore comic images if they exist
+        if (result.entry.comicImageUrls && Array.isArray(result.entry.comicImageUrls) && result.entry.comicImageUrls.length > 0) {
+          // Reconstruct snapshots from saved URLs
+          snapshots = result.entry.comicImageUrls.map((url, index) => ({
+            id: index + 1,
+            index: index,
+            title: `Panel ${index + 1}`,
+            subtitle: '',
+            mood: '',
+            imageUrl: url, // Use GCS URL instead of base64
+            description: '',
+            isLoading: false
+          }));
+          allImagesDone = true;
+        } else {
+          // Clear snapshots if no images saved
+          snapshots = [];
+          allImagesDone = false;
+        }
       } else {
         journalText = '';
         previousJournalText = '';
@@ -233,6 +253,9 @@ $: leadingBlank = new Date(currentYear, currentMonth, 1).getDay();
               "Welcome back. Take a slow breath with me. What's one moment from today you'd like to remember or understand a bit better?"
           }
         ];
+        // Clear snapshots
+        snapshots = [];
+        allImagesDone = false;
       }
     } catch (error) {
       console.error('Error loading journal entry:', error);
@@ -246,6 +269,9 @@ $: leadingBlank = new Date(currentYear, currentMonth, 1).getDay();
             "Welcome back. Take a slow breath with me. What's one moment from today you'd like to remember or understand a bit better?"
         }
       ];
+      // Clear snapshots on error
+      snapshots = [];
+      allImagesDone = false;
     } finally {
       isLoadingEntry = false;
       isInitialLoad = false;
@@ -272,7 +298,7 @@ $: leadingBlank = new Date(currentYear, currentMonth, 1).getDay();
   /**
    * Perform the actual save operation
    */
-  async function performSave(date, content, includeChat = false) {
+  async function performSave(date, content, includeChat = false, comicImageUrls = []) {
     if (!data?.user?._id) return;
 
     isSaving = true;
@@ -300,7 +326,8 @@ $: leadingBlank = new Date(currentYear, currentMonth, 1).getDay();
         body: JSON.stringify({
           date: dateStr,
           content: content || '',
-          chatMessages: includeChat ? chatMessagesToSave : undefined
+          chatMessages: includeChat ? chatMessagesToSave : undefined,
+          comicImageUrls: comicImageUrls.length > 0 ? comicImageUrls : undefined
         })
       });
 
@@ -334,8 +361,51 @@ $: leadingBlank = new Date(currentYear, currentMonth, 1).getDay();
       saveTimeout = null;
     }
     
-    // Immediately save both journal text and chat history
-    await performSave(selectedDate, journalText, true);
+    let comicImageUrls = [];
+    
+    // Upload comic images to GCS if they exist
+    if (snapshots && snapshots.length > 0) {
+      const imagesWithData = snapshots
+        .map((snapshot, index) => ({
+          snapshot,
+          index,
+          imageData: snapshot.imageUrl
+        }))
+        .filter(({ imageData }) => imageData && imageData.startsWith('data:image')); // Only base64 data URLs
+
+      if (imagesWithData.length > 0) {
+        try {
+          isSaving = true;
+          const dateStr = selectedDate.toISOString().split('T')[0];
+          
+          const uploadResponse = await fetch('/api/journal/upload-images', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              date: dateStr,
+              images: imagesWithData.map(({ snapshot, index, imageData }) => ({
+                imageData,
+                panelIndex: index
+              }))
+            })
+          });
+
+          if (uploadResponse.ok) {
+            const uploadResult = await uploadResponse.json();
+            comicImageUrls = uploadResult.urls || [];
+          } else {
+            console.error('Failed to upload images:', await uploadResponse.json());
+          }
+        } catch (error) {
+          console.error('Error uploading images:', error);
+        }
+      }
+    }
+    
+    // Save journal entry with chat history and comic image URLs
+    await performSave(selectedDate, journalText, true, comicImageUrls);
   }
 
   // Auto-save when journalText changes (but not when loading)

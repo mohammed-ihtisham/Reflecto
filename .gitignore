@@ -11,3 +11,8 @@ pnpm-debug.log*
 .vercel
 
 README-DATABASE.md
+
+# GCS Credentials (never commit these!)
+gcs-credentials.json
+*-credentials.json
+*.json.key

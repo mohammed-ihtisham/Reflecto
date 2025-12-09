@@ -35,6 +35,7 @@ export async function GET({ request, url }) {
         date: entry.date,
         content: entry.content,
         chatMessages: entry.chatMessages || [],
+        comicImageUrls: entry.comicImageUrls || [],
         createdAt: entry.createdAt,
         updatedAt: entry.updatedAt
       } : null
@@ -54,7 +55,7 @@ export async function POST({ request }) {
     }
 
     const body = await request.json();
-    const { date, content, chatMessages } = body;
+    const { date, content, chatMessages, comicImageUrls } = body;
 
     if (!date) {
       return json({ error: 'Date is required' }, { status: 400 });
@@ -75,12 +76,18 @@ export async function POST({ request }) {
         )
       : [];
 
+    // Validate comicImageUrls if provided
+    const validComicImageUrls = Array.isArray(comicImageUrls)
+      ? comicImageUrls.filter(url => typeof url === 'string' && url.length > 0)
+      : [];
+
     // Optional: extract mood or other metadata from content
     const entry = await JournalEntry.upsert(
       session.userId,
       entryDate,
       content || '',
       validChatMessages,
+      validComicImageUrls,
       {}
     );
 
@@ -91,6 +98,7 @@ export async function POST({ request }) {
         date: entry.date,
         content: entry.content,
         chatMessages: entry.chatMessages || [],
+        comicImageUrls: entry.comicImageUrls || [],
         createdAt: entry.createdAt,
         updatedAt: entry.updatedAt
       }
