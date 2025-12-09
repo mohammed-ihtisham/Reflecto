@@ -8,9 +8,10 @@
   import { mood as moodStore } from '$lib/stores/mood.js';
   import { analyzeTone } from '$lib/utils/toneAnalysis.js';
 
-  const AUTH_KEY = 'reflecto_auth';
+  export let data;
+
   const PROFILE_KEY = 'reflecto_profile_setup';
-  const userName = 'Mohammed';
+  const userName = data?.user?.name || 'User';
   const showNotebookOnly = true;
   const vibeCopy = {
     thoughtful: "You seem thoughtful today—your Journaling Companion is here.",
@@ -171,23 +172,25 @@ $: monthDays = Array.from(
 $: leadingBlank = new Date(currentYear, currentMonth, 1).getDay();
 
   onMount(() => {
-    const authed = typeof localStorage !== 'undefined' ? localStorage.getItem(AUTH_KEY) : null;
-    if (!authed) {
-      goto('/auth');
-      return;
-    }
+    // User is already authenticated (checked server-side)
+    allowed = true;
+    moodStore.set(currentMood);
+    
+    // Check if profile setup is pending
     const profileStatus =
       typeof localStorage !== 'undefined' ? localStorage.getItem(PROFILE_KEY) : null;
     if (profileStatus === 'pending') {
       goto('/depiction');
       return;
     }
-    allowed = true;
-    moodStore.set(currentMood);
   });
 
-  function logout() {
-    localStorage.removeItem(AUTH_KEY);
+  async function logout() {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
     allowed = false;
     goto('/auth');
   }
@@ -427,17 +430,16 @@ function reflectWithAI() {
         <div class="text-slate-500 text-xs">Hi, {userName}!</div>
         <div class="text-slate-900 font-semibold">Warm, reflective space is ready.</div>
       </div>
-      <div class="relative z-40">
-        <button
-          type="button"
-          class="h-11 w-11 rounded-full bg-gradient-to-br from-amber-200 to-emerald-200 text-slate-800 grid place-items-center font-semibold shadow-lg border border-white hover:-translate-y-[1px] transition"
-          on:click={logout}
-          aria-label="Log out"
-          title="Log out"
-        >
-          😊
-        </button>
-      </div>
+      <button
+        type="button"
+        class="inline-flex items-center gap-2 rounded-full bg-white text-slate-700 px-4 py-2 text-sm font-semibold border border-slate-200 shadow-sm hover:bg-slate-50 hover:-translate-y-[1px] transition"
+        on:click={logout}
+        aria-label="Log out"
+        title="Log out"
+      >
+        <span>🚪</span>
+        <span>Log out</span>
+      </button>
     </div>
   </div>
 

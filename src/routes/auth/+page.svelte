@@ -4,42 +4,29 @@
   import MoodAdaptiveLayout from '$lib/components/ui/MoodAdaptiveLayout.svelte';
   import { mood as moodStore } from '$lib/stores/mood.js';
 
-  const BYPASS_USER = 'ihtisham';
-  const BYPASS_PASS = 'test123';
-  const AUTH_KEY = 'reflecto_auth';
   const PROFILE_KEY = 'reflecto_profile_setup';
   const PROFILE_ROUTE = '/depiction';
 
   let mode = 'login';
-  let isAuthenticated = false;
-  let bypassUsed = false;
+  let isLoading = false;
   let loginForm = { username: '', password: '' };
   let signupForm = { name: '', email: '', password: '', confirm: '' };
   let status = {
     type: 'info',
-    message: `No backend is wired yet. Use "${BYPASS_USER}" / "${BYPASS_PASS}" to unlock the preview.`
+    message: 'Sign in or create an account to get started.'
   };
 
   onMount(() => {
     moodStore.set('thoughtful');
   });
 
-  function finishAuth(mode = 'preview') {
-    localStorage.setItem(AUTH_KEY, mode);
-    isAuthenticated = true;
-    bypassUsed = mode === 'bypass';
-    // keep a tiny delay for status render then navigate
-    setTimeout(() => goto('/dashboard'), 100);
-  }
-
-  function startDepictionSetup() {
-    localStorage.setItem(AUTH_KEY, 'preview');
-    localStorage.setItem(PROFILE_KEY, 'pending');
+  async function finishAuth(user) {
     status = {
       type: 'success',
-      message: 'Saved locally. One quick step: add a selfie or description so your comic avatar feels like you.'
+      message: `Welcome back, ${user.name || user.username}! Redirecting to dashboard...`
     };
-    setTimeout(() => goto(PROFILE_ROUTE), 180);
+    // Small delay to show success message
+    setTimeout(() => goto('/dashboard'), 500);
   }
 
   $: statusTone =
@@ -53,53 +40,104 @@
     mode = next;
     status = {
       type: 'info',
-      message: `Frontend-only preview. ${
-        next === 'login'
-          ? `Use "${BYPASS_USER}" / "${BYPASS_PASS}" to enter.`
-          : 'Save your details locally until invites open.'
-      }`
+      message: next === 'login' 
+        ? 'Sign in to your account.'
+        : 'Create a new account to get started.'
     };
   }
 
-  function handleLogin(event) {
+  async function handleLogin(event) {
     event.preventDefault();
     const user = loginForm.username.trim();
     const pass = loginForm.password;
 
     if (!user || !pass) {
-      status = { type: 'warning', message: 'Please enter both username and password.' };
+      status = { type: 'warning', message: 'Please enter both username/email and password.' };
       return;
     }
 
-    if (user === BYPASS_USER && pass === BYPASS_PASS) {
-      status = { type: 'success', message: 'Bypass unlocked. Taking you to the dashboard…' };
-      finishAuth('bypass');
-      return;
-    }
+    isLoading = true;
+    status = { type: 'info', message: 'Signing in...' };
 
-    status = {
-      type: 'info',
-      message: `Backend is offline. Use "${BYPASS_USER}" / "${BYPASS_PASS}" to bypass or continue in preview.`
-    };
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ username: user, password: pass })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        status = { type: 'warning', message: data.error || 'Login failed. Please try again.' };
+        isLoading = false;
+        return;
+      }
+
+      if (data.success && data.user) {
+        await finishAuth(data.user);
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      status = { type: 'warning', message: 'Network error. Please check your connection and try again.' };
+      isLoading = false;
+    }
   }
 
-  function handleSignup(event) {
+  async function handleSignup(event) {
     event.preventDefault();
     if (!signupForm.name || !signupForm.email || !signupForm.password) {
-      status = { type: 'warning', message: 'Please fill name, email, and password to pre-register.' };
+      status = { type: 'warning', message: 'Please fill in name, email, and password.' };
       return;
     }
     if (signupForm.password !== signupForm.confirm) {
-      status = { type: 'warning', message: 'Passwords do not match yet.' };
+      status = { type: 'warning', message: 'Passwords do not match.' };
+      return;
+    }
+    if (signupForm.password.length < 6) {
+      status = { type: 'warning', message: 'Password must be at least 6 characters long.' };
       return;
     }
 
-    startDepictionSetup();
-  }
+    isLoading = true;
+    status = { type: 'info', message: 'Creating your account...' };
 
-  function continuePreview() {
-    status = { type: 'success', message: 'Preview mode enabled. Redirecting…' };
-    finishAuth('preview');
+    try {
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: signupForm.name,
+          email: signupForm.email,
+          password: signupForm.password,
+          username: signupForm.email.split('@')[0] // Use email prefix as default username
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        status = { type: 'warning', message: data.error || 'Signup failed. Please try again.' };
+        isLoading = false;
+        return;
+      }
+
+      if (data.success && data.user) {
+        status = {
+          type: 'success',
+          message: `Account created! Welcome, ${data.user.name}. Redirecting...`
+        };
+        setTimeout(() => goto('/dashboard'), 500);
+      }
+    } catch (error) {
+      console.error('Signup error:', error);
+      status = { type: 'warning', message: 'Network error. Please check your connection and try again.' };
+      isLoading = false;
+    }
   }
 </script>
 
@@ -140,26 +178,23 @@
           </div>
         </div>
         <p class="text-sm text-slate-700 leading-relaxed">
-          Sign in using the bypass while we connect the backend. The layout, gradients, and typography mirror the core Reflecto workspace so the transition feels seamless.
+          Your secure gateway to Reflecto. The layout, gradients, and typography mirror the core Reflecto workspace so the transition feels seamless.
         </p>
         <div class="grid grid-cols-1 gap-3">
           <div class="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm">
-            <div class="text-[11px] uppercase tracking-[0.2em] text-slate-500 mb-1">Bypass details</div>
-            <div class="flex items-center justify-between text-sm text-slate-800">
-              <span>Username</span>
-              <code class="px-2 py-1 rounded-lg bg-slate-100 border border-slate-200 text-slate-700 text-xs">{BYPASS_USER}</code>
-            </div>
-            <div class="flex items-center justify-between text-sm text-slate-800 mt-2">
-              <span>Password</span>
-              <code class="px-2 py-1 rounded-lg bg-slate-100 border border-slate-200 text-slate-700 text-xs">{BYPASS_PASS}</code>
-            </div>
+            <div class="text-[11px] uppercase tracking-[0.2em] text-slate-500 mb-1">Security</div>
+            <ul class="text-sm text-slate-700 space-y-1">
+              <li>• Passwords are securely hashed</li>
+              <li>• Sessions are encrypted with JWT</li>
+              <li>• Your data is stored safely in MongoDB</li>
+            </ul>
           </div>
           <div class="rounded-2xl border border-white/70 bg-white/70 p-4 shadow-sm">
             <div class="text-[11px] uppercase tracking-[0.2em] text-slate-500 mb-1">What to expect</div>
             <ul class="text-sm text-slate-700 space-y-1">
-              <li>• Frontend-only demo — no data leaves this browser.</li>
-              <li>• Same typography + gradients as the notebook.</li>
-              <li>• Jump back to the canvas once you authenticate.</li>
+              <li>• Create an account or sign in</li>
+              <li>• Same typography + gradients as the notebook</li>
+              <li>• Jump back to the canvas once you authenticate</li>
             </ul>
           </div>
         </div>
@@ -172,16 +207,8 @@
         <div class="text-sm font-semibold text-slate-800">Soft-guarded space</div>
       </div>
       <p class="text-sm text-slate-600">
-        We keep the same gentle tone here: minimal friction, calming colors, and clear next steps. Use the bypass credentials above or skip straight into a preview.
+        We keep the same gentle tone here: minimal friction, calming colors, and clear next steps. Sign in or create an account to get started.
       </p>
-      <button
-        class="inline-flex items-center gap-2 rounded-full bg-slate-900 text-white px-4 py-2 text-sm shadow-lg shadow-slate-900/10 hover:-translate-y-[1px] transition"
-        type="button"
-        on:click={continuePreview}
-      >
-        Explore in preview mode
-        <span>→</span>
-      </button>
     </div>
   </div>
 
@@ -191,10 +218,10 @@
         <div>
           <div class="text-xs uppercase tracking-[0.2em] text-slate-500">Account</div>
           <div class="text-lg font-semibold text-slate-900">Welcome back to your space</div>
-          <p class="text-sm text-slate-500">Sign in or pre-register. No backend calls yet.</p>
+          <p class="text-sm text-slate-500">Sign in or create an account to continue.</p>
         </div>
         <div class="bg-gradient-to-r from-emerald-100 to-cyan-100 text-emerald-700 border border-emerald-200 rounded-full px-3 py-1 text-xs font-semibold shadow-inner">
-          Frontend only
+          Secure
         </div>
       </div>
 
@@ -221,37 +248,7 @@
         </div>
       {/if}
 
-      {#if isAuthenticated}
-        <div class="rounded-2xl border border-emerald-200 bg-emerald-50/70 text-emerald-800 shadow-inner p-4 space-y-3">
-          <div class="flex items-center gap-2">
-            <span class="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-ping"></span>
-            <div class="font-semibold">Authenticated</div>
-          </div>
-          <p class="text-sm">
-            {#if bypassUsed}
-              Bypass accepted — welcome back, {BYPASS_USER}. Everything stays local until the backend ships.
-            {:else}
-              Preview mode is on. You can explore the journal experience freely.
-            {/if}
-          </p>
-          <div class="flex items-center gap-2 flex-wrap">
-            <a
-              class="inline-flex items-center gap-2 rounded-full bg-slate-900 text-white px-4 py-2 text-sm shadow-lg shadow-slate-900/15 hover:-translate-y-[1px] transition"
-              href="/"
-            >
-              Enter the journal canvas
-              <span>→</span>
-            </a>
-            <button
-              class="inline-flex items-center gap-2 rounded-full bg-white text-slate-700 px-4 py-2 text-sm border border-slate-200 shadow-sm hover:-translate-y-[1px] transition"
-              type="button"
-              on:click={() => (isAuthenticated = false)}
-            >
-              Back to forms
-            </button>
-          </div>
-        </div>
-      {:else if mode === 'login'}
+      {#if mode === 'login'}
         <form class="space-y-4 flex-1 flex flex-col" on:submit={handleLogin}>
           <div class="space-y-1">
             <label class="text-sm font-semibold text-slate-800" for="username">Username</label>
@@ -272,29 +269,19 @@
               bind:value={loginForm.password}
             />
           </div>
-          <div class="flex items-center justify-between text-sm text-slate-600">
-            <div class="flex items-center gap-2">
-              <div class="h-2 w-2 rounded-full bg-emerald-400"></div>
-              <span>Bypass works only with the credentials above.</span>
-            </div>
-            <button
-              type="button"
-              class="text-emerald-700 hover:text-emerald-800 font-semibold"
-              on:click={continuePreview}
-            >
-              Skip for now
-            </button>
-          </div>
           <div class="flex flex-col gap-3 mt-auto">
             <button
               type="submit"
-              class="inline-flex justify-center items-center gap-2 rounded-2xl bg-slate-900 text-white px-4 py-3 text-sm font-semibold shadow-lg shadow-slate-900/15 hover:-translate-y-[1px] transition"
+              disabled={isLoading}
+              class="inline-flex justify-center items-center gap-2 rounded-2xl bg-slate-900 text-white px-4 py-3 text-sm font-semibold shadow-lg shadow-slate-900/15 hover:-translate-y-[1px] transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Login
+              {#if isLoading}
+                <span class="animate-spin">⏳</span>
+                Signing in...
+              {:else}
+                Login
+              {/if}
             </button>
-            <div class="text-xs text-slate-500 text-center">
-              This button never calls a server. Success is client-only.
-            </div>
           </div>
         </form>
       {:else}
@@ -341,21 +328,27 @@
             </div>
           </div>
           <p class="text-xs text-slate-500">
-            Submitting here stores your interest only on this device. For now, use the bypass login above to experience the notebook.
+            By creating an account, you agree to our terms of service. Your data is securely stored.
           </p>
           <div class="flex flex-col gap-3 mt-auto">
             <button
               type="submit"
-              class="inline-flex justify-center items-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-sky-500 text-white px-4 py-3 text-sm font-semibold shadow-lg shadow-emerald-500/20 hover:-translate-y-[1px] transition"
+              disabled={isLoading}
+              class="inline-flex justify-center items-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-sky-500 text-white px-4 py-3 text-sm font-semibold shadow-lg shadow-emerald-500/20 hover:-translate-y-[1px] transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Pre-register
+              {#if isLoading}
+                <span class="animate-spin">⏳</span>
+                Creating account...
+              {:else}
+                Create Account
+              {/if}
             </button>
             <button
               type="button"
               class="inline-flex justify-center items-center gap-2 rounded-2xl bg-white text-slate-800 px-4 py-3 text-sm font-semibold border border-slate-200 shadow-sm hover:-translate-y-[1px] transition"
               on:click={() => switchMode('login')}
             >
-              Already have a bypass? Login instead
+              Already have an account? Login instead
             </button>
           </div>
         </form>
