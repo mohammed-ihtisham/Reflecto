@@ -161,6 +161,10 @@ let selectedDate = today;
 let currentMonth = today.getMonth();
 let currentYear = today.getFullYear();
 let showAssistant = false;
+let isSaving = false;
+let saveTimeout = null;
+let isLoadingEntry = false;
+let saveSuccess = false;
 
 $: monthLabel = new Intl.DateTimeFormat('en', { month: 'long', year: 'numeric' }).format(
   new Date(currentYear, currentMonth)
@@ -183,7 +187,176 @@ $: leadingBlank = new Date(currentYear, currentMonth, 1).getDay();
       goto('/depiction');
       return;
     }
+
+    // Load journal entry for today
+    loadJournalEntry(selectedDate);
   });
+
+  /**
+   * Load journal entry for a specific date
+   */
+  async function loadJournalEntry(date) {
+    if (!data?.user?._id) return;
+
+    isLoadingEntry = true;
+    
+    try {
+      const dateStr = date.toISOString().split('T')[0];
+      const response = await fetch(`/api/journal?date=${dateStr}`);
+      const result = await response.json();
+
+      if (response.ok && result.entry) {
+        journalText = result.entry.content || '';
+        previousJournalText = journalText; // Update previous to prevent immediate save
+        
+        // Restore chat messages if they exist
+        if (result.entry.chatMessages && Array.isArray(result.entry.chatMessages) && result.entry.chatMessages.length > 0) {
+          messages = result.entry.chatMessages;
+        } else {
+          // Reset to default welcome message if no chat history
+          messages = [
+            {
+              role: 'assistant',
+              content:
+                "Welcome back. Take a slow breath with me. What's one moment from today you'd like to remember or understand a bit better?"
+            }
+          ];
+        }
+      } else {
+        journalText = '';
+        previousJournalText = '';
+        // Reset to default welcome message
+        messages = [
+          {
+            role: 'assistant',
+            content:
+              "Welcome back. Take a slow breath with me. What's one moment from today you'd like to remember or understand a bit better?"
+          }
+        ];
+      }
+    } catch (error) {
+      console.error('Error loading journal entry:', error);
+      journalText = '';
+      previousJournalText = '';
+      // Reset to default welcome message on error
+      messages = [
+        {
+          role: 'assistant',
+          content:
+            "Welcome back. Take a slow breath with me. What's one moment from today you'd like to remember or understand a bit better?"
+        }
+      ];
+    } finally {
+      isLoadingEntry = false;
+      isInitialLoad = false;
+    }
+  }
+
+  /**
+   * Save journal entry (debounced)
+   */
+  function saveJournalEntry(date, content) {
+    if (!data?.user?._id) return;
+
+    // Clear any pending save
+    if (saveTimeout) {
+      clearTimeout(saveTimeout);
+    }
+
+    // Debounce: wait 1.5 seconds after user stops typing
+    saveTimeout = setTimeout(async () => {
+      await performSave(date, content);
+    }, 1500); // 1.5 second debounce
+  }
+
+  /**
+   * Perform the actual save operation
+   */
+  async function performSave(date, content, includeChat = false) {
+    if (!data?.user?._id) return;
+
+    isSaving = true;
+    saveSuccess = false;
+    
+    try {
+      const dateStr = date.toISOString().split('T')[0];
+      
+      // Prepare chat messages - filter out the initial welcome message if it's the only one
+      let chatMessagesToSave = [];
+      if (includeChat && messages && messages.length > 0) {
+        // Only save if there are actual conversations (more than just the welcome message)
+        // Or if there are user messages
+        const hasUserMessages = messages.some(m => m.role === 'user');
+        if (hasUserMessages || messages.length > 1) {
+          chatMessagesToSave = messages;
+        }
+      }
+      
+      const response = await fetch('/api/journal', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          date: dateStr,
+          content: content || '',
+          chatMessages: includeChat ? chatMessagesToSave : undefined
+        })
+      });
+
+      if (response.ok) {
+        saveSuccess = true;
+        // Update previous text to prevent duplicate saves
+        previousJournalText = content;
+        // Hide success message after 2 seconds
+        setTimeout(() => {
+          saveSuccess = false;
+        }, 2000);
+      } else {
+        const error = await response.json();
+        console.error('Error saving journal entry:', error);
+      }
+    } catch (error) {
+      console.error('Error saving journal entry:', error);
+    } finally {
+      isSaving = false;
+      saveTimeout = null;
+    }
+  }
+
+  /**
+   * Manual save - "Done for the day" button handler
+   */
+  async function saveForTheDay() {
+    // Clear any pending debounced save
+    if (saveTimeout) {
+      clearTimeout(saveTimeout);
+      saveTimeout = null;
+    }
+    
+    // Immediately save both journal text and chat history
+    await performSave(selectedDate, journalText, true);
+  }
+
+  // Auto-save when journalText changes (but not when loading)
+  let previousJournalText = '';
+  let isInitialLoad = true;
+  
+  $: {
+    // Skip auto-save on initial load or when loading an entry
+    if (isInitialLoad || isLoadingEntry) {
+      if (!isLoadingEntry) {
+        isInitialLoad = false;
+        previousJournalText = journalText;
+      }
+    } else {
+      // Only save if text actually changed
+      if (journalText !== undefined && selectedDate && journalText !== previousJournalText) {
+        previousJournalText = journalText;
+        saveJournalEntry(selectedDate, journalText);
+      }
+    }
+  }
 
   async function logout() {
     try {
@@ -233,7 +406,14 @@ function changeMonth(delta) {
 }
 
 function selectDate(day) {
-  selectedDate = new Date(currentYear, currentMonth, day);
+  const newDate = new Date(currentYear, currentMonth, day);
+  // Save current entry before switching dates
+  if (saveTimeout) {
+    clearTimeout(saveTimeout);
+    saveJournalEntry(selectedDate, journalText);
+  }
+  selectedDate = newDate;
+  loadJournalEntry(newDate);
 }
 
 function reflectWithAI() {
@@ -683,10 +863,33 @@ function reflectWithAI() {
         <div class="rounded-2xl border border-slate-100 bg-white/80 shadow-inner flex-1 min-h-[375px] relative">
           <textarea
             bind:value={journalText}
-            class="w-full h-full min-h-[340px] resize-none rounded-2xl p-4 bg-transparent text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 text-[17px] leading-8"
+            disabled={isLoadingEntry}
+            class="w-full h-full min-h-[340px] resize-none rounded-2xl p-4 bg-transparent text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 text-[17px] leading-8 disabled:opacity-50"
             style="font-family: 'Shadows Into Light', 'Handlee', cursive;"
-            placeholder="How did your day unfold? What detail keeps replaying? Capture it in your own voice."
+            placeholder={isLoadingEntry ? 'Loading...' : "How did your day unfold? What detail keeps replaying? Capture it in your own voice."}
           ></textarea>
+          <div class="absolute bottom-4 right-4 flex items-center gap-2">
+            {#if isSaving}
+              <div class="text-xs text-slate-500 flex items-center gap-1">
+                <span class="animate-spin">⏳</span>
+                <span>Saving...</span>
+              </div>
+            {:else if saveSuccess}
+              <div class="text-xs text-emerald-600 flex items-center gap-1">
+                <span>✓</span>
+                <span>Saved!</span>
+              </div>
+            {/if}
+            <button
+              type="button"
+              on:click={saveForTheDay}
+              disabled={isSaving || isLoadingEntry}
+              class="inline-flex items-center gap-2 rounded-full bg-emerald-500 text-white px-4 py-2 text-sm font-semibold shadow-md hover:bg-emerald-600 hover:-translate-y-[1px] transition disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+            >
+              <span>✓</span>
+              <span>Done for the day</span>
+            </button>
+          </div>
           {#if autoAssistEnabled}
             <button
               class="auto-assist-orb"
