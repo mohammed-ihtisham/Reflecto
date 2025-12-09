@@ -55,20 +55,22 @@
 </script>
 
 <div
-  class="max-w-[80%] md:max-w-[70%] whitespace-pre-wrap leading-relaxed rounded-3xl border transition-all duration-500 backdrop-blur-xl will-change-transform hover:-translate-y-[2px]"
+  class="max-w-[74%] md:max-w-[60%] whitespace-pre-wrap leading-6 rounded-2xl border transition-all duration-500 backdrop-blur-lg will-change-transform hover:-translate-y-[1px]"
   style="
     background: {backgroundStyle};
     border-color: rgba(15,23,42,0.08);
     box-shadow:
-      0 10px 30px rgba(15,23,42,0.08),
-      0 0 0 1px rgba(var(--accent),0.08);
+      0 6px 18px rgba(15,23,42,0.08),
+      0 0 0 1px rgba(var(--accent),0.06);
     transform-origin: {isUser ? '100% 50%' : '0% 50%'};
   "
 >
   {#if role}
-    <div class="px-4 pt-3 text-[10px] uppercase tracking-wide text-slate-500">{isUser ? 'you' : role}</div>
+    <div class="px-3 pt-2 text-[10px] uppercase tracking-[0.16em] text-slate-500">
+      {isUser ? 'you' : role}
+    </div>
   {/if}
-  <div class="px-4 pb-3 md:px-5 md:pb-4 text-slate-800 transition-all duration-500 ease-in-out {typographyClass}">
+  <div class="px-3.5 pb-3 md:px-4 md:pb-3 text-[15px] text-slate-800 transition-all duration-500 ease-in-out {typographyClass}">
     {#each words as w, i}
       <span
         class="inline-block animate-fade-delayed"

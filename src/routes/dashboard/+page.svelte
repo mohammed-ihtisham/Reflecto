@@ -4,8 +4,6 @@
   import MoodAdaptiveLayout from '$lib/components/ui/MoodAdaptiveLayout.svelte';
   import ChatPanel from '$lib/components/journal/ChatPanel.svelte';
   import JournalInput from '$lib/components/journal/JournalInput.svelte';
-  import SuggestionChips from '$lib/components/ui/SuggestionChips.svelte';
-  import BreathingTypingIndicator from '$lib/components/ui/BreathingTypingIndicator.svelte';
   import SnapshotModal from '$lib/components/ui/SnapshotModal.svelte';
   import { mood as moodStore } from '$lib/stores/mood.js';
   import { analyzeTone } from '$lib/utils/toneAnalysis.js';
@@ -35,11 +33,6 @@
   let snapshotMeta = null;
   let selectedPanel = null;
   let isModalOpen = false;
-  let suggestions = [
-    'One moment that felt meaningful today?',
-    'What surprised you about your reactions?',
-    'What do you want to carry into tomorrow?'
-  ];
   let snapshots = [];
   let isGeneratingSnapshot = false;
   let snapshotError = '';
@@ -398,10 +391,6 @@ function reflectWithAI() {
     send(e.detail.content);
   }
 
-  function handleSuggestion(e) {
-    send(e.detail.value);
-  }
-
   function openPanelModal(panel) {
     if (!panel) return;
     selectedPanel = panel;
@@ -722,16 +711,32 @@ function reflectWithAI() {
     </div>
   </div>
 
-  <div slot="right" class="flex flex-col h-[calc(100vh-6rem)] pb-6">
-    <div class={`flex-1 min-h-0 rounded-3xl p-4 md:p-6 text-slate-900 flex flex-col gap-4 transition-all duration-300 ${bookMode ? 'bg-gradient-to-br from-white via-amber-50/70 to-white' : 'bg-white/90'}`}
-         style="backdrop-filter: blur(20px); border: 1px solid rgba(226,232,240,0.9); box-shadow: 0 24px 48px rgba(15,23,42,0.12), 0 0 0 1px rgba(var(--accent),0.06);">
-      <div class="flex items-start justify-between gap-3">
-        <div>
-          <div class="text-xs uppercase tracking-[0.15em] text-stone-500">{bookMode ? 'Journal book spread' : 'Comic assistant zone'}</div>
-          <div class="text-lg md:text-xl font-semibold font-display">Snapshot of the day</div>
-          <p class="text-sm text-stone-500">Hover to feel the panels breathe. Swap to chat when you need a guide.</p>
+  <div slot="right" class="flex flex-col h-[calc(100vh-6rem)] pb-6 space-y-4">
+    <div
+      class={`h-[98%] rounded-3xl p-5 md:p-6 text-slate-900 flex flex-col gap-5 transition-all duration-300 ${
+        showAssistant
+          ? 'bg-gradient-to-br from-slate-50 via-white to-slate-50/80'
+          : bookMode
+            ? 'bg-gradient-to-br from-white via-amber-50/70 to-white'
+            : 'bg-white/90'
+      }`}
+      style="backdrop-filter: blur(20px); border: 1px solid rgba(226,232,240,0.9); box-shadow: 0 24px 48px rgba(15,23,42,0.12), 0 0 0 1px rgba(var(--accent),0.06);"
+    >
+      <div class="flex items-start justify-between gap-4">
+        <div class="space-y-1">
+          <div class="text-[11px] uppercase tracking-[0.15em] text-stone-500">
+            {showAssistant ? 'Chat companion' : bookMode ? 'Journal book spread' : 'Comic assistant zone'}
+          </div>
+          <div class="text-lg md:text-xl font-semibold font-display">
+            {showAssistant ? 'A calm thread for reflection' : 'Snapshot of the day'}
+          </div>
+          <p class="text-sm text-stone-500 max-w-xl">
+            {showAssistant
+              ? 'Focused chat space—just conversation, no comics.'
+              : 'Hover to explore panels'}
+          </p>
         </div>
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 shrink-0 self-start">
           <button
             type="button"
             class={`rounded-full px-3 py-1.5 text-sm border transition ${!showAssistant ? 'bg-slate-800 text-white border-slate-800 shadow-sm' : 'bg-white border-slate-200 text-slate-800 hover:-translate-y-[1px]'}`}
@@ -747,93 +752,88 @@ function reflectWithAI() {
             Chat companion
           </button>
         </div>
-        </div>
+      </div>
 
-        {#if showAssistant}
-        <div class="flex-1 min-h-0 flex flex-col gap-3 rounded-2xl border border-slate-100 bg-white/70 shadow-inner p-3 pb-5">
-          <div class="flex-1 min-h-0 rounded-xl border border-slate-100 bg-white">
-              <ChatPanel
-                {messages}
-              containerClass="h-full border-0"
-                {isUserTyping}
-                {userTypingSpeed}
-                {isAssistantTyping}
-                {assistantTypingSpeed}
-                keystrokeTrigger={keystrokeCount}
-              />
-            </div>
-          <div class="rounded-xl bg-slate-50 border border-slate-100 p-3">
-            <div class="text-xs text-slate-500 mb-2 flex items-center gap-2">
-              <span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
-              Quick replies keep the flow moving.
-            </div>
-            <SuggestionChips {suggestions} on:select={handleSuggestion} />
+      {#if showAssistant}
+        <div class="flex-1 min-h-0 flex flex-col gap-3">
+          <div class="flex-1 min-h-[360px]">
+            <ChatPanel
+              {messages}
+              containerClass="h-full p-0 border-0 shadow-none bg-transparent"
+              {isUserTyping}
+              {userTypingSpeed}
+              {isAssistantTyping}
+              {assistantTypingSpeed}
+              keystrokeTrigger={keystrokeCount}
+            />
+          </div>
+          <div class="pt-1">
             <JournalInput
-              placeholder="Invite the guide or share what you wrote..."
+              placeholder="Share what's on your mind..."
               on:submit={handleSubmit}
               on:typing={handleTyping}
               on:keystroke={handleKeystroke}
             />
-            </div>
           </div>
-              {:else}
+        </div>
+      {:else}
         <div class="flex-1 min-h-0 rounded-2xl bg-transparent p-0 flex flex-col">
-        {#if snapshotError}
-          <div class="bg-rose-50 text-rose-700 border border-rose-200 rounded-2xl p-3 text-sm">
-            {snapshotError}
-          </div>
-        {:else}
-          <div class="grid grid-rows-3 gap-3 flex-1 animate-fade-in-fast">
-            {#each rowSlotIndices as row}
-              <div class={`grid gap-3 w-full`} style={`grid-template-columns: repeat(${row.length}, minmax(0, 1fr));`}>
-                {#each row as idx}
-                  {#if snapshots[idx]}
-                    <button
-                      class="group relative rounded-lg border-[2px] border-slate-900 bg-amber-50/20 overflow-hidden shadow-[4px_6px_0_rgba(15,23,42,0.22)] transition-transform duration-200"
-                      type="button"
-                      on:click={() => allImagesDone && openPanelModal(snapshots[idx])}
-                      aria-disabled={!allImagesDone}
-                      tabindex={allImagesDone ? 0 : -1}
-                    >
-                      {#if snapshots[idx].imageUrl}
-                        <img src={snapshots[idx].imageUrl} alt={snapshots[idx].title} class="absolute inset-0 h-full w-full object-cover" />
-                        <div class="absolute inset-0 bg-gradient-to-t from-black/45 via-black/12 to-transparent"></div>
-                      {:else}
-                        <div class="absolute inset-0 bg-gradient-to-br from-slate-100 to-slate-50" />
-                      {/if}
-                      {#if snapshots[idx].isLoading}
-                        <div class="absolute inset-0 animate-[pulseFade_1.6s_ease-in-out_infinite] bg-gradient-to-br from-emerald-200/40 via-cyan-200/35 to-indigo-200/35 mix-blend-multiply"></div>
-                        <div class="absolute inset-0 bg-gradient-to-r from-white/45 via-white/10 to-white/45 animate-[shimmer_1.4s_infinite] mix-blend-screen"></div>
+          {#if snapshotError}
+            <div class="bg-rose-50 text-rose-700 border border-rose-200 rounded-2xl p-3 text-sm">
+              {snapshotError}
+            </div>
+          {:else}
+            <div class="grid grid-rows-3 gap-3 flex-1 animate-fade-in-fast">
+              {#each rowSlotIndices as row}
+                <div class={`grid gap-3 w-full`} style={`grid-template-columns: repeat(${row.length}, minmax(0, 1fr));`}>
+                  {#each row as idx}
+                    {#if snapshots[idx]}
+                      <button
+                        class="group relative rounded-lg border-[2px] border-slate-900 bg-amber-50/20 overflow-hidden shadow-[4px_6px_0_rgba(15,23,42,0.22)] transition-transform duration-200"
+                        type="button"
+                        on:click={() => allImagesDone && openPanelModal(snapshots[idx])}
+                        aria-disabled={!allImagesDone}
+                        tabindex={allImagesDone ? 0 : -1}
+                      >
+                        {#if snapshots[idx].imageUrl}
+                          <img src={snapshots[idx].imageUrl} alt={snapshots[idx].title} class="absolute inset-0 h-full w-full object-cover" />
+                          <div class="absolute inset-0 bg-gradient-to-t from-black/45 via-black/12 to-transparent"></div>
+                        {:else}
+                          <div class="absolute inset-0 bg-gradient-to-br from-slate-100 to-slate-50" />
+                        {/if}
+                        {#if snapshots[idx].isLoading}
+                          <div class="absolute inset-0 animate-[pulseFade_1.6s_ease-in-out_infinite] bg-gradient-to-br from-emerald-200/40 via-cyan-200/35 to-indigo-200/35 mix-blend-multiply"></div>
+                          <div class="absolute inset-0 bg-gradient-to-r from-white/45 via-white/10 to-white/45 animate-[shimmer_1.4s_infinite] mix-blend-screen"></div>
+                          <div class="absolute inset-0 grid place-items-center">
+                            <div class="h-10 w-10 rounded-full border-2 border-white/60 border-t-transparent animate-spin"></div>
+                          </div>
+                        {/if}
+                        <div class="absolute inset-0 bg-gradient-to-br from-white/70 to-white/30 opacity-80"></div>
+                        {#if allImagesDone}
+                          <div class="relative h-full w-full p-3 flex flex-col justify-end">
+                            <div class="text-[10px] uppercase tracking-[0.2em] text-stone-400">
+                              {snapshots[idx].mood || 'Moment'}
+                            </div>
+                            <div class="text-sm font-semibold text-stone-800 drop-shadow-sm line-clamp-2">
+                              {snapshots[idx].title || 'Untitled moment'}
+                            </div>
+                          </div>
+                        {/if}
+                      </button>
+                    {:else}
+                      <div class="rounded-lg border-[2px] border-slate-900 bg-amber-50/20 relative overflow-hidden shadow-[4px_6px_0_rgba(15,23,42,0.22)]">
+                        <div class="absolute inset-0 bg-gradient-to-br from-white to-slate-100 opacity-90"></div>
                         <div class="absolute inset-0 grid place-items-center">
-                          <div class="h-10 w-10 rounded-full border-2 border-white/60 border-t-transparent animate-spin"></div>
+                          <div class="text-[11px] uppercase tracking-[0.22em] text-slate-400">Panel</div>
                         </div>
-                      {/if}
-                      <div class="absolute inset-0 bg-gradient-to-br from-white/70 to-white/30 opacity-80"></div>
-                      {#if allImagesDone}
-                        <div class="relative h-full w-full p-3 flex flex-col justify-end">
-                          <div class="text-[10px] uppercase tracking-[0.2em] text-stone-400">
-                            {snapshots[idx].mood || 'Moment'}
-                          </div>
-                          <div class="text-sm font-semibold text-stone-800 drop-shadow-sm line-clamp-2">
-                            {snapshots[idx].title || 'Untitled moment'}
-                          </div>
-                        </div>
-                      {/if}
-                    </button>
-                  {:else}
-                    <div class="rounded-lg border-[2px] border-slate-900 bg-amber-50/20 relative overflow-hidden shadow-[4px_6px_0_rgba(15,23,42,0.22)]">
-                      <div class="absolute inset-0 bg-gradient-to-br from-white to-slate-100 opacity-90"></div>
-                      <div class="absolute inset-0 grid place-items-center">
-                        <div class="text-[11px] uppercase tracking-[0.22em] text-slate-400">Panel</div>
                       </div>
-                    </div>
-                  {/if}
-                {/each}
-              </div>
-            {/each}
-          </div>
-        {/if}
-      </div>
+                    {/if}
+                  {/each}
+                </div>
+              {/each}
+            </div>
+          {/if}
+        </div>
       {/if}
     </div>
     <SnapshotModal 
