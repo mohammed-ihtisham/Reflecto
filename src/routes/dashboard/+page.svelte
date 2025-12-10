@@ -166,6 +166,17 @@ let saveTimeout = null;
 let isLoadingEntry = false;
 let saveSuccess = false;
 
+/**
+ * Format date as YYYY-MM-DD in local timezone (not UTC)
+ * This prevents timezone issues where dates can shift to the next/previous day
+ */
+function formatDateLocal(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 $: monthLabel = new Intl.DateTimeFormat('en', { month: 'long', year: 'numeric' }).format(
   new Date(currentYear, currentMonth)
 );
@@ -198,10 +209,13 @@ $: leadingBlank = new Date(currentYear, currentMonth, 1).getDay();
   async function loadJournalEntry(date) {
     if (!data?.user?._id) return;
 
+    // Clear any previous error states when loading a new date
+    snapshotError = '';
+    isGeneratingSnapshot = false;
     isLoadingEntry = true;
     
     try {
-      const dateStr = date.toISOString().split('T')[0];
+      const dateStr = formatDateLocal(date);
       const response = await fetch(`/api/journal?date=${dateStr}`);
       const result = await response.json();
 
@@ -305,7 +319,7 @@ $: leadingBlank = new Date(currentYear, currentMonth, 1).getDay();
     saveSuccess = false;
     
     try {
-      const dateStr = date.toISOString().split('T')[0];
+      const dateStr = formatDateLocal(date);
       
       // Prepare chat messages - filter out the initial welcome message if it's the only one
       let chatMessagesToSave = [];
@@ -376,7 +390,7 @@ $: leadingBlank = new Date(currentYear, currentMonth, 1).getDay();
       if (imagesWithData.length > 0) {
         try {
           isSaving = true;
-          const dateStr = selectedDate.toISOString().split('T')[0];
+          const dateStr = formatDateLocal(selectedDate);
           
           // Upload images one by one to avoid payload size limits
           comicImageUrls = new Array(imagesWithData.length);
@@ -619,29 +633,57 @@ function reflectWithAI() {
         const basePrompt = panel.description || panel.title || 'comic panel illustration';
         const sizedPrompt = `${basePrompt}. Render it as a ${aspectHint}. Keep key subjects centered so they are not cropped.`;
         const slot = rowSlotIndices.find((row) => row.includes(i));
-        const imgRes = await fetch('/api/snapshot/image', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            prompt: sizedPrompt,
-            title: panel.title,
-            mood: panel.mood,
-            slot: {
-              index: i,
-              rowIndex: rowSlotIndices.findIndex((row) => row.includes(i)),
-              columns: slot?.length || null
+        
+        // Retry logic: try up to 3 times to generate the image
+        let imageUrl = null;
+        const maxRetries = 3;
+        let retryCount = 0;
+        
+        while (retryCount < maxRetries && !imageUrl) {
+          try {
+            const imgRes = await fetch('/api/snapshot/image', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                prompt: sizedPrompt,
+                title: panel.title,
+                mood: panel.mood,
+                slot: {
+                  index: i,
+                  rowIndex: rowSlotIndices.findIndex((row) => row.includes(i)),
+                  columns: slot?.length || null
+                }
+              })
+            });
+            const imgData = await imgRes.json();
+            
+            if (imgRes.ok && imgData?.imageUrl) {
+              imageUrl = imgData.imageUrl;
+            } else {
+              retryCount++;
+              if (retryCount < maxRetries) {
+                console.warn(`Image generation failed for panel "${panel.title}" (attempt ${retryCount}/${maxRetries}), retrying...`, imgData?.error);
+                // Small delay before retry
+                await new Promise(resolve => setTimeout(resolve, 500));
+              } else {
+                console.error(`Image generation failed for panel "${panel.title}" after ${maxRetries} attempts:`, imgData?.error);
+              }
             }
-          })
-        });
-        const imgData = await imgRes.json();
-        if (!imgRes.ok || imgData?.error) {
-          console.error('Image generation failed for panel', panel.title, imgData?.error);
-          snapshots = snapshots.map((p, idx) => (idx === i ? { ...p, isLoading: false } : p));
-          continue;
+          } catch (error) {
+            retryCount++;
+            if (retryCount < maxRetries) {
+              console.warn(`Image generation error for panel "${panel.title}" (attempt ${retryCount}/${maxRetries}), retrying...`, error);
+              await new Promise(resolve => setTimeout(resolve, 500));
+            } else {
+              console.error(`Image generation error for panel "${panel.title}" after ${maxRetries} attempts:`, error);
+            }
+          }
         }
+        
+        // Update the panel with the image URL (or leave it null if all retries failed)
         snapshots = snapshots.map((p, idx) =>
           idx === i
-            ? { ...p, imageUrl: imgData.imageUrl || p.imageUrl, isLoading: false }
+            ? { ...p, imageUrl: imageUrl || p.imageUrl, isLoading: false }
             : p
         );
       }
@@ -1095,7 +1137,7 @@ function reflectWithAI() {
                           <div class="absolute inset-0 animate-[pulseFade_1.6s_ease-in-out_infinite] bg-gradient-to-br from-emerald-200/40 via-cyan-200/35 to-indigo-200/35 mix-blend-multiply"></div>
                           <div class="absolute inset-0 bg-gradient-to-r from-white/45 via-white/10 to-white/45 animate-[shimmer_1.4s_infinite] mix-blend-screen"></div>
                           <div class="absolute inset-0 grid place-items-center">
-                            <div class="h-10 w-10 rounded-full border-2 border-white/60 border-t-transparent animate-spin"></div>
+                            <div class="h-10 w-10 rounded-full border-2 border-slate-600/70 border-t-transparent animate-spin"></div>
                           </div>
                         {/if}
                         <div class="absolute inset-0 bg-gradient-to-br from-white/70 to-white/30 opacity-80"></div>

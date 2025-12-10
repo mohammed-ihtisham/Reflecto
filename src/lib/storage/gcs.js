@@ -129,7 +129,11 @@ export async function deleteImageFromGCS(fileName) {
  * @returns {string} File path in the bucket
  */
 export function generateComicImagePath(userId, date, panelIndex) {
-  const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD
+  // Format date as YYYY-MM-DD in local timezone (not UTC) to match journal entry dates
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const dateStr = `${year}-${month}-${day}`;
   return `users/${userId}/${dateStr}/panel-${panelIndex + 1}.png`;
 }
 
