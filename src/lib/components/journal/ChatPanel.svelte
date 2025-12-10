@@ -67,6 +67,15 @@
         />
       </div>
     {/if}
+    {#if isUserTyping}
+      <div class="flex justify-end pt-1">
+        <TypingChatBubble
+          role="user"
+          speed={userTypingSpeed}
+          keystrokeTrigger={keystrokeTrigger}
+        />
+      </div>
+    {/if}
     <div aria-hidden="true" bind:this={bottomAnchor}></div>
   </div>
 </div>

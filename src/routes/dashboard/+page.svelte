@@ -59,6 +59,8 @@ let autoAssistPrompt = '';
 let showAutoAssistCard = false;
 let autoAssistIdleTimer = null;
 let autoAssistPeriodicTimer = null;
+let autoAssistLoading = false;
+let autoAssistCardOpen = false;
 let showClearModal = false;
 let showSavePrompt = false;
 let pendingDate = null;
@@ -127,9 +129,7 @@ function scheduleAutoAssistTimers() {
   autoAssistPeriodicTimer = setInterval(() => triggerAutoAssist('minute'), 60000);
 }
 
-function triggerAutoAssist(reason = 'idle') {
-  if (!autoAssistEnabled) return;
-  const clean = (journalText || '').trim();
+function getFallbackAutoAssistPrompt(reason, clean) {
   const starterPrompts = [
     'What detail keeps replaying from today?',
     'How did that moment make you feel?',
@@ -141,9 +141,53 @@ function triggerAutoAssist(reason = 'idle') {
     clean.length > 30
       ? `You wrote: "${clean.slice(0, 110)}${clean.length > 110 ? '...' : ''}". What feels unresolved about it?`
       : 'What tiny moment deserves a closer look?';
-  autoAssistPrompt = reason === 'minute' ? hint : starterPrompts[Math.floor(Math.random() * starterPrompts.length)];
-  showAutoAssistCard = true;
+  return reason === 'minute' ? hint : starterPrompts[Math.floor(Math.random() * starterPrompts.length)];
+}
+
+function handleAutoAssistDismiss() {
+  showAutoAssistCard = false;
+  autoAssistCardOpen = false;
   scheduleAutoAssistTimers();
+}
+
+async function triggerAutoAssist(reason = 'idle') {
+  if (!autoAssistEnabled || autoAssistLoading) return;
+  const clean = (journalText || '').trim();
+  const fallback = getFallbackAutoAssistPrompt(reason, clean);
+
+  if (!clean) {
+    autoAssistPrompt = fallback;
+    showAutoAssistCard = true;
+    autoAssistCardOpen = true;
+    resetAutoAssistTimers(); // pause until user dismisses
+    return;
+  }
+
+  autoAssistLoading = true;
+  try {
+    const res = await fetch('/api/journal/auto-assist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: clean })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error || 'Auto-assist request failed');
+    }
+
+    const data = await res.json();
+    const prompt = String(data?.prompt || '').trim();
+    autoAssistPrompt = prompt || fallback;
+  } catch (err) {
+    console.error('Auto-assist error:', err);
+    autoAssistPrompt = fallback;
+  } finally {
+    autoAssistLoading = false;
+    showAutoAssistCard = true;
+    autoAssistCardOpen = true;
+    resetAutoAssistTimers(); // pause until user dismisses
+  }
 }
   
   // Typing indicators
@@ -1043,6 +1087,15 @@ function reflectWithAI() {
             {/if}
             <button
               type="button"
+              on:click={generateSnapshot}
+              disabled={!canGenerateSnapshot || isLoadingEntry}
+              class="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-white text-emerald-700 px-4 py-2 text-sm font-semibold shadow-sm hover:-translate-y-[1px] hover:shadow hover:bg-emerald-50 transition disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+            >
+              <span>🎨</span>
+              <span>Generate comic</span>
+            </button>
+            <button
+              type="button"
               on:click={saveForTheDay}
               disabled={isSaving || isLoadingEntry}
               class="inline-flex items-center gap-2 rounded-full bg-emerald-500 text-white px-4 py-2 text-sm font-semibold shadow-md hover:bg-emerald-600 hover:-translate-y-[1px] transition disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
@@ -1050,27 +1103,35 @@ function reflectWithAI() {
               <span>✓</span>
               <span>Done for the day</span>
             </button>
-          </div>
-          {#if autoAssistEnabled}
-            <button
-              class="auto-assist-orb"
-              type="button"
-              title="Open auto-assist prompt"
-              on:click={() => (showAutoAssistCard = !showAutoAssistCard)}
-              aria-label="Show auto-assist suggestion"
-            >
-              <span class="text-lg">🤖</span>
-            </button>
-            {#if showAutoAssistCard && autoAssistPrompt}
-              <div class="auto-assist-card">
-                <div class="text-[11px] uppercase tracking-[0.2em] text-emerald-600 mb-1">Auto-assist</div>
-                <div class="text-sm text-slate-800 leading-snug">{autoAssistPrompt}</div>
-                <div class="flex justify-end mt-2">
-                  <button class="mini-nav" on:click={() => (showAutoAssistCard = false)}>Got it</button>
-                </div>
+            {#if autoAssistEnabled}
+              <div class="relative flex items-center">
+                <button
+                  class="auto-assist-orb"
+                  type="button"
+                  title="Open auto-assist prompt"
+                  on:click={async () => {
+                    if (showAutoAssistCard) {
+                      handleAutoAssistDismiss();
+                      return;
+                    }
+                    await triggerAutoAssist('manual');
+                  }}
+                  aria-label="Show auto-assist suggestion"
+                >
+                  <span class="text-lg">🤖</span>
+                </button>
+                {#if showAutoAssistCard && autoAssistPrompt}
+                  <div class="auto-assist-card">
+                    <div class="text-[11px] uppercase tracking-[0.2em] text-emerald-600 mb-1">Auto-assist</div>
+                    <div class="text-sm text-slate-800 leading-snug">{autoAssistPrompt}</div>
+                    <div class="flex justify-end mt-2">
+                      <button class="mini-nav" on:click={handleAutoAssistDismiss}>Got it</button>
+                    </div>
+                  </div>
+                {/if}
               </div>
             {/if}
-          {/if}
+          </div>
         </div>
         <div class="pt-3"></div>
       </div>
@@ -1314,9 +1375,7 @@ function reflectWithAI() {
     box-shadow: 0 8px 16px rgba(15,23,42,0.12);
   }
   .auto-assist-orb {
-    position: absolute;
-    right: 14px;
-    bottom: 14px;
+    position: static;
     height: 40px;
     width: 40px;
     border-radius: 9999px;
@@ -1341,8 +1400,8 @@ function reflectWithAI() {
   }
   .auto-assist-card {
     position: absolute;
-    right: 14px;
-    bottom: 64px;
+    right: 0;
+    bottom: calc(100% + 12px);
     width: min(280px, 70vw);
     background: #fff;
     border: 1px solid rgba(226,232,240,0.95);
