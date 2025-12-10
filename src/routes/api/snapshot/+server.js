@@ -1,5 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { geminiGenerate, geminiGenerateImage } from '$lib/gemini.js';
+import { getSession } from '$lib/auth/session.js';
+import { User } from '$lib/db/models/User.js';
 
 /**
  * Generate a comic-style snapshot from conversation history
@@ -27,7 +29,25 @@ export async function POST({ request }) {
   }
 
   try {
+    // Get user's depiction description if authenticated
+    let userDepictionDescription = '';
+    try {
+      const session = await getSession(request);
+      if (session && session.userId) {
+        const user = await User.findById(session.userId);
+        if (user && user.depictionDescription) {
+          userDepictionDescription = user.depictionDescription.trim();
+        }
+      }
+    } catch (err) {
+      console.warn('Could not fetch user depiction description:', err);
+    }
+
     // Step 1: Generate a summary and comic panel descriptions from the conversation
+    const depictionContext = userDepictionDescription 
+      ? ` The main character in all panels should look like this: ${userDepictionDescription}. Make sure to incorporate these appearance details consistently across all panels.`
+      : '';
+    
     const summaryPrompt = `Based on this journaling conversation, create a comic-style "snapshot of the day" with exactly ${normalizedPanelCount} panels.
     
     Analyze the conversation and identify:
@@ -42,7 +62,7 @@ export async function POST({ request }) {
       - prompt: A detailed image generation prompt in comic book style (include "comic book style", "comic panel", "vibrant colors", "dynamic lines")
       - mood: The emotional tone (e.g., "joyful", "reflective", "challenging", "peaceful")
     
-    Make the prompts vivid and specific, suitable for generating comic-style illustrations.${layoutDescription ? ` Layout info: ${layoutDescription}.` : ''}`;
+    Make the prompts vivid and specific, suitable for generating comic-style illustrations.${layoutDescription ? ` Layout info: ${layoutDescription}.` : ''}${depictionContext}`;
 
     const contents = combinedHistory.map((m) => ({ 
       role: m.role === 'user' ? 'user' : 'model', 

@@ -4,86 +4,83 @@
   import MoodAdaptiveLayout from '$lib/components/ui/MoodAdaptiveLayout.svelte';
   import { mood as moodStore } from '$lib/stores/mood.js';
 
-  const AUTH_KEY = 'reflecto_auth';
-  const PROFILE_KEY = 'reflecto_profile_setup';
-  const PROFILE_DATA_KEY = 'reflecto_depiction_profile';
-
   let depictionDescription = '';
-  let photoPreview = '';
   let status = {
     type: 'info',
-    message: 'Add a quick cue so we can depict you in the comic: a selfie or a short description.'
+    message: 'Describe how you want to look in your comic panels. Include details about your appearance, style, and any distinctive features.'
   };
   let isSaving = false;
 
-  onMount(() => {
+  onMount(async () => {
     moodStore.set('gentle');
-    const authed =
-      typeof localStorage !== 'undefined' ? localStorage.getItem(AUTH_KEY) : null;
-    if (!authed) {
-      goto('/auth');
-      return;
-    }
-    const saved =
-      typeof localStorage !== 'undefined' ? localStorage.getItem(PROFILE_DATA_KEY) : null;
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        depictionDescription = parsed?.description || '';
-        photoPreview = parsed?.photoData || '';
-      } catch (err) {
-        console.warn('Failed to load saved depiction data', err);
+    
+    // Check if user is authenticated by trying to fetch their depiction
+    try {
+      const response = await fetch('/api/depiction', {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        depictionDescription = data.depictionDescription || '';
+      } else if (response.status === 401) {
+        // Not authenticated, redirect to auth
+        goto('/auth');
+        return;
+      } else if (response.status === 404) {
+        // User not found - this shouldn't happen if user was just created
+        // But we'll allow them to continue and set their description
+        console.warn('User not found in depiction endpoint, but allowing to continue');
       }
+    } catch (error) {
+      console.error('Error checking authentication:', error);
+      // Don't redirect on error - let them try to save
     }
   });
 
-  function handleFileChange(event) {
-    const file = event?.target?.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      status = { type: 'warning', message: 'Please choose an image file.' };
+  async function saveProfile() {
+    if (isSaving) return;
+    if (!depictionDescription.trim()) {
+      status = { type: 'warning', message: 'Please describe how you want to look to continue.' };
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      photoPreview = reader.result?.toString() || '';
+    
+    isSaving = true;
+    status = { type: 'info', message: 'Saving your description...' };
+
+    try {
+      const response = await fetch('/api/depiction', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          description: depictionDescription.trim()
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        status = { type: 'warning', message: data.error || 'Failed to save description. Please try again.' };
+        isSaving = false;
+        return;
+      }
+
       status = {
         type: 'success',
-        message: 'Preview loaded. This stays on your device until we wire the backend.'
+        message: 'Description saved! Redirecting you to the dashboard…'
       };
-    };
-    reader.readAsDataURL(file);
-  }
-
-  function clearPhoto() {
-    photoPreview = '';
-  }
-
-  function skipForNow() {
-    localStorage.setItem(PROFILE_KEY, 'skipped');
-    goto('/dashboard');
-  }
-
-  function saveProfile() {
-    if (isSaving) return;
-    if (!photoPreview && !depictionDescription.trim()) {
-      status = { type: 'warning', message: 'Add a photo or a short description to continue.' };
-      return;
+      setTimeout(() => goto('/dashboard'), 500);
+    } catch (error) {
+      console.error('Save error:', error);
+      status = { type: 'warning', message: 'Network error. Please check your connection and try again.' };
+      isSaving = false;
     }
-    isSaving = true;
-    const payload = {
-      description: depictionDescription.trim(),
-      photoData: photoPreview || null,
-      updatedAt: new Date().toISOString()
-    };
-    localStorage.setItem(PROFILE_DATA_KEY, JSON.stringify(payload));
-    localStorage.setItem(PROFILE_KEY, 'complete');
-    status = {
-      type: 'success',
-      message: 'Saved locally. Redirecting you to the dashboard…'
-    };
-    setTimeout(() => goto('/dashboard'), 220);
-    isSaving = false;
   }
 
   $: statusTone =
@@ -131,14 +128,14 @@
           </div>
         </div>
         <p class="text-sm text-slate-700 leading-relaxed">
-          Share how you want to appear in your comic spreads. Upload a recent photo or describe your vibe—hair, colors, outfit, and anything to keep the panels true to you.
+          Describe how you want to appear in your comic spreads. Include details about your appearance—hair, colors, outfit, style, and anything to keep the panels true to you.
         </p>
         <div class="grid grid-cols-1 gap-3">
           <div class="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm">
             <div class="text-[11px] uppercase tracking-[0.2em] text-slate-500 mb-1">Why this?</div>
             <ul class="text-sm text-slate-700 space-y-1">
-              <li>• Keeps your panels personal without a long setup.</li>
-              <li>• Stored locally until backend storage is ready.</li>
+              <li>• Keeps your panels personal and consistent.</li>
+              <li>• Stored securely in your account.</li>
               <li>• Takes less than a minute—then straight to dashboard.</li>
             </ul>
           </div>
@@ -152,23 +149,6 @@
       </div>
     {/if}
 
-    <div class="rounded-3xl bg-white/85 backdrop-blur-xl border border-slate-200 shadow-xl p-5 space-y-3">
-      <div class="flex items-center gap-2">
-        <span class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
-        <div class="text-sm font-semibold text-slate-800">Private preview</div>
-      </div>
-      <p class="text-sm text-slate-600">
-        Everything here stays on this device. When the backend is live, we will prompt you to sync it securely.
-      </p>
-      <button
-        class="inline-flex items-center gap-2 rounded-full bg-slate-900 text-white px-4 py-2 text-sm shadow-lg shadow-slate-900/10 hover:-translate-y-[1px] transition"
-        type="button"
-        on:click={skipForNow}
-      >
-        Skip for now
-        <span>→</span>
-      </button>
-    </div>
   </div>
 
   <div slot="right" class="h-[calc(100vh-6rem)] pb-6 flex flex-col">
@@ -176,80 +156,32 @@
       <div class="flex items-center justify-between gap-3">
         <div>
           <div class="text-xs uppercase tracking-[0.2em] text-slate-500">Depiction</div>
-          <div class="text-lg font-semibold text-slate-900">Upload or describe yourself</div>
-          <p class="text-sm text-slate-500">Keep it simple—a single photo or a few words is enough.</p>
+          <div class="text-lg font-semibold text-slate-900">Describe yourself</div>
+          <p class="text-sm text-slate-500">Tell us how you want to appear in your comic panels.</p>
         </div>
         <div class="bg-gradient-to-r from-emerald-100 to-cyan-100 text-emerald-700 border border-emerald-200 rounded-full px-3 py-1 text-xs font-semibold shadow-inner">
           Calming mode
         </div>
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1 min-h-0">
-        <label
-          class="relative group rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/70 hover:border-emerald-300 hover:bg-emerald-50/60 transition p-4 flex flex-col justify-center items-center text-center cursor-pointer"
-          for="photo-upload"
-        >
-          {#if photoPreview}
-            <img
-              src={photoPreview}
-              alt="Your selected depiction"
-              class="absolute inset-0 h-full w-full object-cover rounded-xl opacity-90"
-            />
-            <div class="absolute inset-0 bg-gradient-to-t from-black/45 via-black/15 to-transparent rounded-xl"></div>
-            <div class="relative z-10 flex flex-col items-center gap-2 text-white">
-              <div class="text-sm font-semibold">Photo attached</div>
-              <div class="text-xs text-white/80">Click to replace or remove below.</div>
-            </div>
-          {:else}
-            <div class="h-12 w-12 rounded-2xl bg-white text-slate-800 border border-slate-200 grid place-items-center shadow-sm text-xl mb-2">
-              📷
-            </div>
-            <div class="text-sm font-semibold text-slate-800">Upload a photo</div>
-            <p class="text-xs text-slate-500">Face-forward, good lighting helps the comic capture you.</p>
-          {/if}
-          <input
-            id="photo-upload"
-            type="file"
-            accept="image/*"
-            class="hidden"
-            on:change={handleFileChange}
-          />
-        </label>
-
-        <div class="rounded-2xl border border-slate-200 bg-white/80 shadow-inner p-4 flex flex-col gap-3">
+      <div class="flex-1 min-h-0 flex flex-col">
+        <div class="rounded-2xl border border-slate-200 bg-white/80 shadow-inner p-4 flex flex-col gap-3 flex-1">
           <div class="flex items-center justify-between">
             <label for="depiction-description" class="text-sm font-semibold text-slate-800">Describe your look</label>
-            <span class="text-xs text-slate-500">Optional but helpful</span>
+            <span class="text-xs text-slate-500">Required</span>
           </div>
           <textarea
             id="depiction-description"
-            class="w-full h-full min-h-[180px] rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-800 shadow-inner placeholder:text-slate-400 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 outline-none transition"
-            placeholder="Example: Curly dark hair, glasses, soft pastel hoodie, loves teal + peach accents."
+            class="w-full h-full min-h-[300px] rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-800 shadow-inner placeholder:text-slate-400 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 outline-none transition resize-none"
+            placeholder="Example: Curly dark hair, glasses, soft pastel hoodie, loves teal + peach accents. Medium height, warm smile, often wears casual comfortable clothes."
             bind:value={depictionDescription}
           ></textarea>
         </div>
       </div>
 
-      <div class="flex flex-wrap items-center gap-3 justify-between">
-        <div class="flex items-center gap-2">
-          <button
-            class="inline-flex items-center gap-2 rounded-full bg-white text-slate-700 px-4 py-2 text-sm border border-slate-200 shadow-sm hover:-translate-y-[1px] transition disabled:opacity-60"
-            type="button"
-            on:click={clearPhoto}
-            disabled={!photoPreview}
-          >
-            Remove photo
-          </button>
-          <button
-            class="inline-flex items-center gap-2 rounded-full bg-white text-slate-700 px-4 py-2 text-sm border border-slate-200 shadow-sm hover:-translate-y-[1px] transition"
-            type="button"
-            on:click={skipForNow}
-          >
-            Skip for now
-          </button>
-        </div>
+      <div class="flex flex-wrap items-center gap-3 justify-end">
         <button
-          class="inline-flex justify-center items-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-sky-500 text-white px-4 py-3 text-sm font-semibold shadow-lg shadow-emerald-500/20 hover:-translate-y-[1px] transition disabled:opacity-70"
+          class="inline-flex justify-center items-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-sky-500 text-white px-6 py-3 text-sm font-semibold shadow-lg shadow-emerald-500/20 hover:-translate-y-[1px] transition disabled:opacity-70"
           type="button"
           on:click={saveProfile}
           disabled={isSaving}

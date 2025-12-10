@@ -131,7 +131,7 @@
           type: 'success',
           message: `Account created! Welcome, ${data.user.name}. Redirecting...`
         };
-        setTimeout(() => goto('/dashboard'), 500);
+        setTimeout(() => goto('/depiction'), 500);
       }
     } catch (error) {
       console.error('Signup error:', error);

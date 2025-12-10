@@ -21,9 +21,50 @@ export async function POST({ request }) {
 
     // Create user
     const user = await User.create({ name, email, password, username });
+    console.log("Signup - User created:", { _id: user._id.toString(), email: user.email });
+
+    // Verify user was saved by fetching it back from database
+    const userId = user._id.toString();
+    console.log("Signup - Verifying user with userId:", userId);
+    
+    // Also try direct database query
+    const { connectToDatabase } = await import('$lib/db/mongodb.js');
+    const { ObjectId } = await import('mongodb');
+    const db = await connectToDatabase();
+    const usersCollection = db.collection('users');
+    
+    try {
+      const directUser = await usersCollection.findOne({ _id: new ObjectId(userId) });
+      console.log("Signup - Direct DB query result:", directUser ? "Found" : "Not found");
+      if (directUser) {
+        console.log("Signup - Direct DB user:", { _id: directUser._id.toString(), email: directUser.email });
+      }
+    } catch (directError) {
+      console.error("Signup - Direct DB query error:", directError.message);
+    }
+    
+    const verifiedUser = await User.findById(userId);
+    
+    if (!verifiedUser) {
+      console.error('Signup - User creation verification failed: User not found after creation, userId:', userId);
+      // List all users to debug
+      try {
+        const allUsers = await usersCollection.find({}).limit(10).toArray();
+        console.log("Signup - All users in DB:", allUsers.map(u => ({ _id: u._id.toString(), email: u.email })));
+      } catch (listError) {
+        console.error("Signup - Error listing users:", listError.message);
+      }
+      return json(
+        { error: 'Failed to create user account. Please try again.' },
+        { status: 500 }
+      );
+    }
+
+    console.log("Signup - User verified:", { _id: verifiedUser._id.toString(), email: verifiedUser.email });
 
     // Create session
-    const token = await createSession(user._id.toString());
+    const token = await createSession(userId);
+    console.log("Signup - Session created for userId:", userId);
 
     // Set cookie
     const headers = new Headers();
@@ -33,10 +74,10 @@ export async function POST({ request }) {
       {
         success: true,
         user: {
-          _id: user._id.toString(),
-          name: user.name,
-          email: user.email,
-          username: user.username
+          _id: verifiedUser._id.toString(),
+          name: verifiedUser.name,
+          email: verifiedUser.email,
+          username: verifiedUser.username
         }
       },
       { headers }
