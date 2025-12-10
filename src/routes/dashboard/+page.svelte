@@ -363,7 +363,7 @@ $: leadingBlank = new Date(currentYear, currentMonth, 1).getDay();
     
     let comicImageUrls = [];
     
-    // Upload comic images to GCS if they exist
+    // Upload comic images to GCS one by one if they exist
     if (snapshots && snapshots.length > 0) {
       const imagesWithData = snapshots
         .map((snapshot, index) => ({
@@ -378,26 +378,41 @@ $: leadingBlank = new Date(currentYear, currentMonth, 1).getDay();
           isSaving = true;
           const dateStr = selectedDate.toISOString().split('T')[0];
           
-          const uploadResponse = await fetch('/api/journal/upload-images', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              date: dateStr,
-              images: imagesWithData.map(({ snapshot, index, imageData }) => ({
-                imageData,
-                panelIndex: index
-              }))
-            })
-          });
+          // Upload images one by one to avoid payload size limits
+          comicImageUrls = new Array(imagesWithData.length);
+          for (const { index, imageData } of imagesWithData) {
+            try {
+              const uploadResponse = await fetch('/api/journal/upload-images', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  date: dateStr,
+                  imageData,
+                  panelIndex: index
+                })
+              });
 
-          if (uploadResponse.ok) {
-            const uploadResult = await uploadResponse.json();
-            comicImageUrls = uploadResult.urls || [];
-          } else {
-            console.error('Failed to upload images:', await uploadResponse.json());
+              if (uploadResponse.ok) {
+                const uploadResult = await uploadResponse.json();
+                if (uploadResult.url) {
+                  // Store URL at the correct index to maintain order
+                  comicImageUrls[index] = uploadResult.url;
+                }
+              } else {
+                const error = await uploadResponse.json();
+                console.error(`Failed to upload image ${index + 1}:`, error);
+                // Continue with other images even if one fails
+              }
+            } catch (error) {
+              console.error(`Error uploading image ${index + 1}:`, error);
+              // Continue with other images even if one fails
+            }
           }
+          
+          // Remove any undefined entries (failed uploads) and maintain order
+          comicImageUrls = comicImageUrls.filter(url => url !== undefined);
         } catch (error) {
           console.error('Error uploading images:', error);
         }
