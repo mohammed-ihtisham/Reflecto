@@ -21,8 +21,8 @@ export class JournalEntry {
     userId,
     date,
     content,
-    chatMessages = [],
-    comicImageUrls = [],
+    chatMessages = undefined,
+    comicImageUrls = undefined,
     metadata = {}
   ) {
     const db = await connectToDatabase();
@@ -36,14 +36,27 @@ export class JournalEntry {
     const entryDate = new Date(date);
     entryDate.setHours(0, 0, 0, 0);
 
+    const sanitizedContent = (content || "").trim();
+
+    // Build update parts conditionally so we don't wipe chat/comics when omitted
+    const setFields = {
+      content: sanitizedContent,
+      ...metadata,
+      updatedAt: new Date(),
+    };
+
+    if (Array.isArray(chatMessages)) {
+      setFields.chatMessages = chatMessages;
+    }
+
+    if (Array.isArray(comicImageUrls)) {
+      setFields.comicImageUrls = comicImageUrls;
+    }
+
     const entryDoc = {
       userId: userIdObj,
       date: entryDate,
-      content: content.trim(),
-      chatMessages: Array.isArray(chatMessages) ? chatMessages : [],
-      comicImageUrls: Array.isArray(comicImageUrls) ? comicImageUrls : [],
-      ...metadata,
-      updatedAt: new Date(),
+      ...setFields,
       createdAt: new Date(), // Will be set on insert, preserved on update
     };
 
@@ -53,14 +66,10 @@ export class JournalEntry {
         date: entryDate,
       },
       {
-        $set: {
-          content: entryDoc.content,
-          chatMessages: entryDoc.chatMessages,
-          comicImageUrls: entryDoc.comicImageUrls,
-          ...metadata,
-          updatedAt: entryDoc.updatedAt,
-        },
+        $set: setFields,
         $setOnInsert: {
+          userId: userIdObj,
+          date: entryDate,
           createdAt: entryDoc.createdAt,
         },
       },
@@ -70,7 +79,17 @@ export class JournalEntry {
       }
     );
 
-    return result.value;
+    // Mongo driver can return null in some environments when an upsert creates
+    // a new document. Fallback to fetching the document explicitly so callers
+    // always receive the saved entry.
+    if (result.value) {
+      return result.value;
+    }
+
+    return await entries.findOne({
+      userId: userIdObj,
+      date: entryDate,
+    });
   }
 
   /**

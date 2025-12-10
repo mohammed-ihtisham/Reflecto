@@ -66,20 +66,24 @@ export async function POST({ request }) {
       return json({ error: 'Invalid date format' }, { status: 400 });
     }
 
-    // Validate chatMessages if provided
-    const validChatMessages = Array.isArray(chatMessages) 
-      ? chatMessages.filter(msg => 
-          msg && 
-          typeof msg === 'object' && 
-          (msg.role === 'user' || msg.role === 'assistant') &&
-          typeof msg.content === 'string'
-        )
-      : [];
+    // Only include chat/images in the update if the client actually sent them.
+    // This prevents wiping existing chat history or comics when auto-saving text.
+    const hasChat = Array.isArray(chatMessages);
+    const hasImages = Array.isArray(comicImageUrls);
 
-    // Validate comicImageUrls if provided
-    const validComicImageUrls = Array.isArray(comicImageUrls)
-      ? comicImageUrls.filter(url => typeof url === 'string' && url.length > 0)
-      : [];
+    const validChatMessages = hasChat
+      ? chatMessages.filter(
+          (msg) =>
+            msg &&
+            typeof msg === 'object' &&
+            (msg.role === 'user' || msg.role === 'assistant') &&
+            typeof msg.content === 'string'
+        )
+      : undefined;
+
+    const validComicImageUrls = hasImages
+      ? comicImageUrls.filter((url) => typeof url === 'string' && url.length > 0)
+      : undefined;
 
     // Optional: extract mood or other metadata from content
     const entry = await JournalEntry.upsert(
@@ -90,6 +94,10 @@ export async function POST({ request }) {
       validComicImageUrls,
       {}
     );
+
+    if (!entry) {
+      return json({ error: 'Failed to persist journal entry' }, { status: 500 });
+    }
 
     return json({
       success: true,

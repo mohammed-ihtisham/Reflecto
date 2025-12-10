@@ -4,7 +4,6 @@
   import MoodAdaptiveLayout from '$lib/components/ui/MoodAdaptiveLayout.svelte';
   import ChatPanel from '$lib/components/journal/ChatPanel.svelte';
   import JournalInput from '$lib/components/journal/JournalInput.svelte';
-  import SnapshotModal from '$lib/components/ui/SnapshotModal.svelte';
   import { mood as moodStore } from '$lib/stores/mood.js';
   import { analyzeTone } from '$lib/utils/toneAnalysis.js';
 
@@ -32,8 +31,6 @@
   let errorMsg = '';
   let currentMood = 'thoughtful';
   let snapshotMeta = null;
-  let selectedPanel = null;
-  let isModalOpen = false;
   let snapshots = [];
   let isGeneratingSnapshot = false;
   let snapshotError = '';
@@ -63,6 +60,9 @@ let showAutoAssistCard = false;
 let autoAssistIdleTimer = null;
 let autoAssistPeriodicTimer = null;
 let showClearModal = false;
+let showSavePrompt = false;
+let pendingDate = null;
+let saveAndSwitchInProgress = false;
 
 $: rowSlotIndices = panelCounts.reduce((acc, count, rowIdx) => {
   const start = acc.flat().length;
@@ -165,6 +165,7 @@ let isSaving = false;
 let saveTimeout = null;
 let isLoadingEntry = false;
 let saveSuccess = false;
+let activeLoadToken = 0;
 
 /**
  * Format date as YYYY-MM-DD in local timezone (not UTC)
@@ -209,15 +210,22 @@ $: leadingBlank = new Date(currentYear, currentMonth, 1).getDay();
   async function loadJournalEntry(date) {
     if (!data?.user?._id) return;
 
+    const requestToken = ++activeLoadToken;
+    const dateStr = formatDateLocal(date);
+
     // Clear any previous error states when loading a new date
     snapshotError = '';
     isGeneratingSnapshot = false;
     isLoadingEntry = true;
     
     try {
-      const dateStr = formatDateLocal(date);
       const response = await fetch(`/api/journal?date=${dateStr}`);
       const result = await response.json();
+
+      // Ignore stale responses if the user switched dates mid-request
+      if (requestToken !== activeLoadToken || formatDateLocal(selectedDate) !== dateStr) {
+        return;
+      }
 
       if (response.ok && result.entry) {
         journalText = result.entry.content || '';
@@ -243,7 +251,7 @@ $: leadingBlank = new Date(currentYear, currentMonth, 1).getDay();
           snapshots = result.entry.comicImageUrls.map((url, index) => ({
             id: index + 1,
             index: index,
-            title: `Panel ${index + 1}`,
+            title: '',
             subtitle: '',
             mood: '',
             imageUrl: url, // Use GCS URL instead of base64
@@ -287,8 +295,10 @@ $: leadingBlank = new Date(currentYear, currentMonth, 1).getDay();
       snapshots = [];
       allImagesDone = false;
     } finally {
-      isLoadingEntry = false;
-      isInitialLoad = false;
+      if (requestToken === activeLoadToken) {
+        isLoadingEntry = false;
+        isInitialLoad = false;
+      }
     }
   }
 
@@ -506,13 +516,48 @@ function changeMonth(delta) {
 
 function selectDate(day) {
   const newDate = new Date(currentYear, currentMonth, day);
-  // Save current entry before switching dates
+  requestDateChange(newDate);
+}
+
+function hasUnsavedChanges() {
+  const textDirty = journalText !== previousJournalText;
+  const unsavedImages = snapshots?.some((s) => s?.imageUrl && s.imageUrl.startsWith('data:image'));
+  return textDirty || unsavedImages;
+}
+
+function requestDateChange(newDate) {
+  if (hasUnsavedChanges()) {
+    pendingDate = newDate;
+    showSavePrompt = true;
+    return;
+  }
+  applyDateChange(newDate);
+}
+
+function applyDateChange(date) {
+  // Save any pending debounce before moving
   if (saveTimeout) {
     clearTimeout(saveTimeout);
     saveJournalEntry(selectedDate, journalText);
   }
-  selectedDate = newDate;
-  loadJournalEntry(newDate);
+  panelCounts = shuffledPanelCounts(); // new random layout on date change
+  activePanelIndex = -1;
+  selectedDate = date;
+  loadJournalEntry(date);
+}
+
+async function saveAndSwitchDate() {
+  if (!pendingDate) {
+    showSavePrompt = false;
+    return;
+  }
+  saveAndSwitchInProgress = true;
+  await saveForTheDay();
+  saveAndSwitchInProgress = false;
+  const targetDate = pendingDate;
+  pendingDate = null;
+  showSavePrompt = false;
+  applyDateChange(targetDate);
 }
 
 function reflectWithAI() {
@@ -572,7 +617,6 @@ function reflectWithAI() {
 
     isGeneratingSnapshot = true;
     snapshotError = '';
-    selectedPanel = null;
     allImagesDone = false;
     panelCounts = shuffledPanelCounts();
 
@@ -701,16 +745,6 @@ function reflectWithAI() {
     send(e.detail.content);
   }
 
-  function openPanelModal(panel) {
-    if (!panel) return;
-    selectedPanel = panel;
-    isModalOpen = true;
-  }
-
-  function closeModal() {
-    isModalOpen = false;
-    selectedPanel = null;
-  }
 </script>
 
 <svelte:head>
@@ -1120,15 +1154,12 @@ function reflectWithAI() {
                 <div class={`grid gap-3 w-full`} style={`grid-template-columns: repeat(${row.length}, minmax(0, 1fr));`}>
                   {#each row as idx}
                     {#if snapshots[idx]}
-                      <button
-                        class="group relative rounded-lg border-[2px] border-slate-900 bg-amber-50/20 overflow-hidden shadow-[4px_6px_0_rgba(15,23,42,0.22)] transition-transform duration-200"
-                        type="button"
-                        on:click={() => allImagesDone && openPanelModal(snapshots[idx])}
-                        aria-disabled={!allImagesDone}
-                        tabindex={allImagesDone ? 0 : -1}
+                      <div
+                        class="group panel-card relative rounded-lg border-[2px] border-slate-900 bg-amber-50/20 overflow-hidden shadow-[4px_6px_0_rgba(15,23,42,0.22)] transition-transform duration-200"
+                        role="presentation"
                       >
                         {#if snapshots[idx].imageUrl}
-                          <img src={snapshots[idx].imageUrl} alt={snapshots[idx].title} class="absolute inset-0 h-full w-full object-cover" />
+                          <img src={snapshots[idx].imageUrl} alt={snapshots[idx].title} class="panel-image absolute inset-0 h-full w-full object-cover" />
                           <div class="absolute inset-0 bg-gradient-to-t from-black/45 via-black/12 to-transparent"></div>
                         {:else}
                           <div class="absolute inset-0 bg-gradient-to-br from-slate-100 to-slate-50" />
@@ -1142,22 +1173,13 @@ function reflectWithAI() {
                         {/if}
                         <div class="absolute inset-0 bg-gradient-to-br from-white/70 to-white/30 opacity-80"></div>
                         {#if allImagesDone}
-                          <div class="relative h-full w-full p-3 flex flex-col justify-end">
-                            <div class="text-[10px] uppercase tracking-[0.2em] text-stone-400">
-                              {snapshots[idx].mood || 'Moment'}
-                            </div>
-                            <div class="text-sm font-semibold text-stone-800 drop-shadow-sm line-clamp-2">
-                              {snapshots[idx].title || 'Untitled moment'}
-                            </div>
-                          </div>
+                          <div class="relative h-full w-full"></div>
                         {/if}
-                      </button>
+                      </div>
                     {:else}
                       <div class="rounded-lg border-[2px] border-slate-900 bg-amber-50/20 relative overflow-hidden shadow-[4px_6px_0_rgba(15,23,42,0.22)]">
                         <div class="absolute inset-0 bg-gradient-to-br from-white to-slate-100 opacity-90"></div>
-                        <div class="absolute inset-0 grid place-items-center">
-                          <div class="text-[11px] uppercase tracking-[0.22em] text-slate-400">Panel</div>
-                        </div>
+                        <div class="absolute inset-0 grid place-items-center"></div>
                       </div>
                     {/if}
                   {/each}
@@ -1168,13 +1190,28 @@ function reflectWithAI() {
         </div>
       {/if}
     </div>
-    <SnapshotModal 
-      open={isModalOpen}
-      title={snapshotMeta?.title || 'Snapshot'}
-      summary={snapshotMeta?.summary || 'This space will hold your reflective summary.'}
-      panel={selectedPanel}
-      on:close={closeModal}
-    />
+  {#if showSavePrompt}
+    <div class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm grid place-items-center px-4">
+      <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md p-5 space-y-3">
+        <div class="text-lg font-semibold text-slate-900">Save before switching dates</div>
+        <p class="text-sm text-slate-600">
+          Please save today&apos;s entry first (tap “Done for the day”). Then we&apos;ll switch the calendar.
+        </p>
+        <div class="flex justify-end gap-2">
+          <button class="mini-nav" on:click={() => { showSavePrompt = false; pendingDate = null; }}>
+            Stay here
+          </button>
+          <button
+            class="px-3 py-2 rounded-lg bg-emerald-500 text-white font-semibold shadow-sm hover:brightness-105 disabled:opacity-60"
+            on:click={saveAndSwitchDate}
+            disabled={saveAndSwitchInProgress}
+          >
+            {saveAndSwitchInProgress ? 'Saving…' : 'Save & switch'}
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
   {#if showClearModal}
     <div class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm grid place-items-center px-4">
       <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md p-5 space-y-3">
@@ -1195,8 +1232,6 @@ function reflectWithAI() {
               ];
               snapshots = [];
               snapshotMeta = null;
-              selectedPanel = null;
-              isModalOpen = false;
               showAssistant = false;
               showClearModal = false;
             }}
@@ -1295,6 +1330,14 @@ function reflectWithAI() {
   .auto-assist-orb:hover {
     transform: translateY(-2px) scale(1.02);
     box-shadow: 0 14px 26px rgba(16,185,129,0.18);
+  }
+  .panel-card .panel-image {
+    filter: grayscale(18%) saturate(0.92) brightness(0.98);
+    transition: filter 180ms ease, transform 180ms ease;
+  }
+  .panel-card:hover .panel-image {
+    filter: saturate(1.32) contrast(1.12) brightness(1.04);
+    transform: translateY(-2px) scale(1.01);
   }
   .auto-assist-card {
     position: absolute;
