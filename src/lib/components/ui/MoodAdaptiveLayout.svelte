@@ -4,6 +4,7 @@
   import { get } from 'svelte/store';
 
   export let currentMood = undefined; // optional external control
+  export let singleColumn = false;
 
   $: resolvedMood = currentMood || get(mood);
   $: tokens = get(moodTokens);
@@ -38,13 +39,19 @@
     <div class="will-change-transform">
       <slot name="header"></slot>
     </div>
-    <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] gap-8">
-      <div class="will-change-transform">
-        <slot name="left"></slot>
-      </div>
-      <div class="will-change-transform">
-        <slot name="right"></slot>
-      </div>
+    <div class={`grid grid-cols-1 gap-8 ${singleColumn ? '' : 'xl:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]'}`}>
+      {#if singleColumn}
+        <div class="will-change-transform max-w-5xl mx-auto w-full">
+          <slot name="main"></slot>
+        </div>
+      {:else}
+        <div class="will-change-transform">
+          <slot name="left"></slot>
+        </div>
+        <div class="will-change-transform">
+          <slot name="right"></slot>
+        </div>
+      {/if}
     </div>
   </div>
 </div>

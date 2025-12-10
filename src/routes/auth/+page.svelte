@@ -40,9 +40,9 @@
     mode = next;
     status = {
       type: 'info',
-      message: next === 'login' 
+      message: next === 'login'
         ? 'Sign in to your account.'
-        : 'Create a new account to get started.'
+        : ''
     };
   }
 
@@ -142,90 +142,95 @@
 </script>
 
 <svelte:head>
-  <title>Reflecto · Sign up / Login</title>
-  <meta name="description" content="Gentle, journal-themed sign-in for Reflecto." />
+  <title>Reflecto · Sign in or create account</title>
+  <meta
+    name="description"
+    content="Sign in to Reflecto to pick up your journal, AI reflections, and mood timeline—securely encrypted end to end."
+  />
 </svelte:head>
 
 <MoodAdaptiveLayout currentMood="thoughtful">
   <div
     slot="header"
-    class="flex items-center justify-between rounded-3xl border border-slate-200 bg-white/90 backdrop-blur-xl px-5 py-4 shadow-[0_10px_30px_rgba(15,23,42,0.12)]"
+    class="flex items-center justify-between rounded-3xl border border-slate-200 bg-gradient-to-r from-white via-slate-50 to-emerald-50/70 backdrop-blur-xl px-5 py-4 shadow-[0_10px_30px_rgba(15,23,42,0.12)]"
   >
     <div class="flex items-center gap-3">
-      <div class="h-12 w-12 rounded-2xl bg-gradient-to-br from-emerald-100 to-sky-100 border border-white grid place-items-center shadow-inner text-lg">
-        🔒
+      <div class="h-12 w-12 rounded-2xl bg-gradient-to-br from-emerald-100 to-sky-100 border border-white grid place-items-center shadow-inner text-xl">
+        🪞
       </div>
       <div>
         <div class="text-[11px] uppercase tracking-[0.2em] text-slate-500">Reflecto Access</div>
-        <div class="text-xl font-semibold text-slate-900">Sign up / Login</div>
-        <p class="text-sm text-slate-500">Soft paper gradients, no harsh edges—just a gentle gate.</p>
+        <div class="text-xl font-semibold text-slate-900">Sign in or create your space</div>
+        <p class="text-sm text-slate-500">Step back into your private journal with AI reflections, synced across devices.</p>
       </div>
     </div>
-    <div class="rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 px-3 py-1 text-sm font-semibold shadow-inner">
-      Private beta
+    <div class="rounded-full bg-emerald-100/80 text-emerald-800 border border-emerald-200 px-3 py-1 text-sm font-semibold shadow-inner">
+      Encrypted-by-default
     </div>
   </div>
 
   <div slot="left" class="space-y-4 h-[calc(100vh-6rem)] pb-6">
-    <div class="relative overflow-hidden rounded-3xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-cyan-50 to-indigo-50 text-slate-900 shadow-[0_16px_40px_rgba(15,23,42,0.12)] p-6">
-      <div class="absolute inset-0 bg-gradient-to-br from-emerald-200/40 via-sky-200/30 to-indigo-200/40 blur-3xl pointer-events-none"></div>
-      <div class="relative space-y-4">
+    <div class="relative overflow-hidden rounded-3xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-sky-50 to-slate-50 text-slate-900 shadow-[0_16px_40px_rgba(15,23,42,0.12)] p-6">
+      <div class="absolute inset-0 bg-gradient-to-br from-emerald-200/30 via-sky-200/25 to-indigo-200/30 blur-3xl pointer-events-none"></div>
+      <div class="relative space-y-5">
         <div class="flex items-center gap-3">
-          <div class="h-12 w-12 rounded-2xl bg-white/80 border border-white grid place-items-center text-2xl">🪶</div>
+          <div class="h-12 w-12 rounded-2xl bg-white/90 border border-white grid place-items-center text-2xl">✨</div>
           <div>
-            <div class="text-xs uppercase tracking-[0.2em] text-emerald-700">Feels like the main app</div>
-            <div class="text-lg font-semibold text-slate-900">Stay in the journal mood</div>
+            <div class="text-xs uppercase tracking-[0.2em] text-emerald-700">Reflecto workspace</div>
+            <div class="text-lg font-semibold text-slate-900">Built for calm, reflective writing</div>
           </div>
         </div>
         <p class="text-sm text-slate-700 leading-relaxed">
-          Your secure gateway to Reflecto. The layout, gradients, and typography mirror the core Reflecto workspace so the transition feels seamless.
+          Pick up right where you journaled last. Reflecto keeps your entries synced, helps you notice patterns with AI reflections, and keeps everything private to you.
         </p>
-        <div class="grid grid-cols-1 gap-3">
-          <div class="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm">
-            <div class="text-[11px] uppercase tracking-[0.2em] text-slate-500 mb-1">Security</div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div class="rounded-2xl border border-white/70 bg-white/85 p-4 shadow-sm space-y-2">
+            <div class="text-[11px] uppercase tracking-[0.2em] text-slate-500">What you get</div>
             <ul class="text-sm text-slate-700 space-y-1">
-              <li>• Passwords are securely hashed</li>
-              <li>• Sessions are encrypted with JWT</li>
-              <li>• Your data is stored safely in MongoDB</li>
+              <li>• Guided prompts + freeform canvas</li>
+              <li>• AI reflections + auto-summaries</li>
+              <li>• Mood timeline with gentle visuals</li>
             </ul>
           </div>
-          <div class="rounded-2xl border border-white/70 bg-white/70 p-4 shadow-sm">
-            <div class="text-[11px] uppercase tracking-[0.2em] text-slate-500 mb-1">What to expect</div>
+          <div class="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm space-y-2">
+            <div class="text-[11px] uppercase tracking-[0.2em] text-slate-500">Security first</div>
             <ul class="text-sm text-slate-700 space-y-1">
-              <li>• Create an account or sign in</li>
-              <li>• Same typography + gradients as the notebook</li>
-              <li>• Jump back to the canvas once you authenticate</li>
+              <li>• Bcrypt hashed passwords</li>
+              <li>• JWT-encrypted sessions</li>
+              <li>• Encrypted data in MongoDB</li>
             </ul>
           </div>
+        </div>
+        <div class="flex flex-wrap gap-2 text-[12px] font-semibold text-slate-700">
+          <span class="rounded-full bg-white/80 border border-white px-3 py-1 shadow-sm">Zero ads or trackers</span>
+          <span class="rounded-full bg-white/80 border border-white px-3 py-1 shadow-sm">Sync across devices</span>
+          <span class="rounded-full bg-white/80 border border-white px-3 py-1 shadow-sm">Offline-friendly drafts</span>
         </div>
       </div>
     </div>
 
-    <div class="rounded-3xl bg-white/85 backdrop-blur-xl border border-slate-200 shadow-xl p-5 space-y-3">
+    <div class="rounded-3xl bg-white/90 backdrop-blur-xl border border-slate-200 shadow-xl p-5 space-y-3">
       <div class="flex items-center gap-2">
         <span class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
-        <div class="text-sm font-semibold text-slate-800">Soft-guarded space</div>
+        <div class="text-sm font-semibold text-slate-800">Private, distraction-free entry point</div>
       </div>
       <p class="text-sm text-slate-600">
-        We keep the same gentle tone here: minimal friction, calming colors, and clear next steps. Sign in or create an account to get started.
+        Your words stay yours. We only use your data to keep your journal synced and to power reflections you request. No marketing emails—just an invite back to your notebook.
       </p>
     </div>
   </div>
 
-  <div slot="right" class="h-[calc(100vh-6rem)] pb-6 flex flex-col">
-    <div class="rounded-3xl bg-white/90 backdrop-blur-xl border border-slate-200 shadow-2xl p-5 md:p-6 flex flex-col gap-4 flex-1">
+  <div slot="right" class="pb-6 flex flex-col h-full md:h-[calc(100vh-6rem)] md:max-h-[40rem] min-h-0">
+    <div class="rounded-3xl bg-white/95 backdrop-blur-xl border border-slate-200 shadow-2xl p-5 md:p-6 flex flex-col gap-4 flex-1 overflow-auto min-h-0">
       <div class="flex items-center justify-between gap-3">
         <div>
           <div class="text-xs uppercase tracking-[0.2em] text-slate-500">Account</div>
-          <div class="text-lg font-semibold text-slate-900">Welcome back to your space</div>
-          <p class="text-sm text-slate-500">Sign in or create an account to continue.</p>
-        </div>
-        <div class="bg-gradient-to-r from-emerald-100 to-cyan-100 text-emerald-700 border border-emerald-200 rounded-full px-3 py-1 text-xs font-semibold shadow-inner">
-          Secure
+          <div class="text-lg font-semibold text-slate-900">Welcome back to Reflecto</div>
+          <p class="text-sm text-slate-500">Continue your journal, pick up prompts, and sync your mood timeline.</p>
         </div>
       </div>
 
-      <div class="grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-1">
+      <div class="grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-slate-50/80 p-1">
         <button
           class={`rounded-xl py-2 text-sm font-semibold transition ${mode === 'login' ? 'bg-white shadow-md text-slate-900' : 'text-slate-500 hover:text-slate-800'}`}
           type="button"
@@ -255,7 +260,7 @@
             <input
               id="username"
               class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-inner placeholder:text-slate-400 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 outline-none transition"
-              placeholder="yourname"
+              placeholder="username or email"
               bind:value={loginForm.username}
             />
           </div>
@@ -312,7 +317,7 @@
                 id="signup-password"
                 type="password"
                 class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-inner placeholder:text-slate-400 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 outline-none transition"
-                placeholder="••••••••"
+                placeholder="Create a password"
                 bind:value={signupForm.password}
               />
             </div>
@@ -328,7 +333,7 @@
             </div>
           </div>
           <p class="text-xs text-slate-500">
-            By creating an account, you agree to our terms of service. Your data is securely stored.
+            We only email you about your account. Your words and reflections stay private—encrypted at rest and in transit.
           </p>
           <div class="flex flex-col gap-3 mt-auto">
             <button
@@ -342,13 +347,6 @@
               {:else}
                 Create Account
               {/if}
-            </button>
-            <button
-              type="button"
-              class="inline-flex justify-center items-center gap-2 rounded-2xl bg-white text-slate-800 px-4 py-3 text-sm font-semibold border border-slate-200 shadow-sm hover:-translate-y-[1px] transition"
-              on:click={() => switchMode('login')}
-            >
-              Already have an account? Login instead
             </button>
           </div>
         </form>

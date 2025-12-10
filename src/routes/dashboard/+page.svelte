@@ -61,6 +61,8 @@ let autoAssistIdleTimer = null;
 let autoAssistPeriodicTimer = null;
 let autoAssistLoading = false;
 let autoAssistCardOpen = false;
+let isExportingComic = false;
+let canExportComic = false;
 let showClearModal = false;
 let showSavePrompt = false;
 let pendingDate = null;
@@ -187,6 +189,91 @@ async function triggerAutoAssist(reason = 'idle') {
     showAutoAssistCard = true;
     autoAssistCardOpen = true;
     resetAutoAssistTimers(); // pause until user dismisses
+  }
+}
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function toDataUrl(src) {
+  if (!src) return null;
+  if (src.startsWith('data:')) return src;
+  const res = await fetch(src);
+  if (!res.ok) throw new Error('Image fetch failed');
+  const blob = await res.blob();
+  return await blobToDataUrl(blob);
+}
+
+async function exportComicPdf() {
+  const panelsWithImages = snapshots.filter((s) => s?.imageUrl);
+  if (!panelsWithImages.length) {
+    snapshotError = 'No comic panels to export yet.';
+    return;
+  }
+  isExportingComic = true;
+  snapshotError = '';
+  try {
+    const { jsPDF } = await import('https://esm.sh/jspdf@2.5.1');
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 32;
+    let added = 0;
+
+    for (let i = 0; i < panelsWithImages.length; i += 1) {
+      const panel = panelsWithImages[i];
+      try {
+        const img = await new Promise((resolve, reject) => {
+          const tag = new Image();
+          tag.crossOrigin = 'anonymous';
+          tag.onload = () => resolve(tag);
+          tag.onerror = () => reject(new Error('Image load failed (CORS?)'));
+          tag.src = panel.imageUrl;
+        });
+
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width || 1200;
+        canvas.height = img.height || 800;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+
+        const ratio = img.width && img.height ? img.width / img.height : 1;
+        let drawWidth = pageWidth - margin * 2;
+        let drawHeight = drawWidth / ratio;
+        if (drawHeight > pageHeight - margin * 2) {
+          drawHeight = pageHeight - margin * 2;
+          drawWidth = drawHeight * ratio;
+        }
+        const x = (pageWidth - drawWidth) / 2;
+        const y = (pageHeight - drawHeight) / 2;
+
+        doc.addImage(dataUrl, 'JPEG', x, y, drawWidth, drawHeight);
+        added += 1;
+        if (i < panelsWithImages.length - 1) {
+          doc.addPage();
+        }
+      } catch (imgErr) {
+        console.error('Export comic image error:', imgErr);
+      }
+    }
+
+    if (added === 0) {
+      snapshotError = 'Failed to export comic (images blocked by CORS?).';
+    } else {
+      doc.save('comic.pdf');
+    }
+  } catch (err) {
+    console.error('Export comic error:', err);
+    snapshotError = 'Failed to export comic.';
+  } finally {
+    isExportingComic = false;
   }
 }
   
@@ -654,6 +741,7 @@ function reflectWithAI() {
   $: hasReflection = (journalText || '').trim().length > 0;
   $: canGenerateSnapshot =
     !isGeneratingSnapshot && snapshots.length === 0 && (userMessageCount >= 1 || hasReflection);
+$: canExportComic = snapshots.some((s) => s?.imageUrl) && !isGeneratingSnapshot && !isExportingComic;
 
   async function generateSnapshot() {
     const reflection = (journalText || '').trim();
@@ -822,7 +910,6 @@ function reflectWithAI() {
         aria-label="Log out"
         title="Log out"
       >
-        <span>🚪</span>
         <span>Log out</span>
       </button>
     </div>
@@ -956,7 +1043,7 @@ function reflectWithAI() {
         </div>
       {/if}
 
-      <div class="rounded-3xl bg-white/95 backdrop-blur-xl border border-slate-100 shadow-2xl p-5 flex flex-col relative overflow-hidden"
+      <div class="rounded-3xl bg-white/95 backdrop-blur-xl border border-slate-100 shadow-2xl p-5 flex flex-col relative overflow-visible z-30"
         style="background-image: linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.96)), repeating-linear-gradient(0deg, rgba(15,23,42,0.02), rgba(15,23,42,0.02) 1px, transparent 1px, transparent 34px);">
         <div class="flex items-start justify-between mb-4">
           <div>
@@ -966,7 +1053,7 @@ function reflectWithAI() {
           </div>
             <p class="text-sm text-slate-500">Let it flow. The assistant joins only when invited.</p>
           </div>
-          <div class="flex items-center gap-2 flex-wrap justify-end">
+        <div class="flex items-center gap-2 flex-wrap justify-end relative z-50 -translate-x-44">
             <div class="relative flex items-center gap-2 bg-white/80 border border-slate-200 rounded-full px-2 py-1.5 shadow-sm">
               <button
                 class="icon-chip"
@@ -1018,50 +1105,22 @@ function reflectWithAI() {
             <button
               class={`icon-chip ${autoAssistEnabled ? 'active' : ''}`}
               aria-label="Auto-assist"
-              title="Auto-assist — toggle prompts after idle or each minute"
               on:click={toggleAutoAssist}
             >
               <span class="icon-circle">✨</span>
+              <span class="icon-tooltip">Auto-assist — gentle prompts after idle</span>
             </button>
 
             <button
               class={`icon-chip ${showAssistant ? 'active' : ''}`}
               aria-label="Chat-based reflection"
-              title="Chat-based reflection — switches right pane to chat"
               on:click={() => {
                 setTool('chat', 'Chat companion replaces the comic canvas.');
                 showAssistant = true;
               }}
             >
               <span class="icon-circle">💬</span>
-            </button>
-
-            <button
-              class="icon-chip"
-              aria-label="Generate comic"
-              title="Generate comic from this entry"
-              on:click={generateSnapshot}
-              disabled={!canGenerateSnapshot}
-            >
-              <span class="icon-circle">🎨</span>
-            </button>
-
-            <div class="h-6 w-px bg-slate-200 mx-1"></div>
-
-            <button class="icon-chip disabled" aria-label="Journals (coming soon)" disabled title="Journals — coming soon">
-              <span class="icon-circle">📓</span>
-            </button>
-            <button class="icon-chip disabled" aria-label="Comics (coming soon)" disabled title="Comics — coming soon">
-              <span class="icon-circle">🖼️</span>
-            </button>
-            <button class="icon-chip disabled" aria-label="Overall reflections (coming soon)" disabled title="Overall reflections — coming soon">
-              <span class="icon-circle">⭐</span>
-            </button>
-
-            <div class="h-6 w-px bg-slate-200 mx-1"></div>
-
-            <button class="icon-chip danger" aria-label="Clear entry" title="Reset today’s entry" on:click={() => (showClearModal = true)}>
-              <span class="icon-circle">⛔</span>
+              <span class="icon-tooltip">Chat companion — focused conversation</span>
             </button>
           </div>
         </div>
@@ -1131,6 +1190,18 @@ function reflectWithAI() {
                 {/if}
               </div>
             {/if}
+            <!-- Export comic temporarily disabled due to cross-origin image constraints -->
+            <!--
+            <button
+              type="button"
+              on:click={exportComicPdf}
+              disabled={!canExportComic}
+              class="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-white text-emerald-700 px-3 py-2 text-sm font-semibold shadow-sm hover:-translate-y-[1px] hover:shadow hover:bg-emerald-50 transition disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+            >
+              <span>⬇️</span>
+              <span>Export comic</span>
+            </button>
+            -->
           </div>
         </div>
         <div class="pt-3"></div>
@@ -1348,10 +1419,44 @@ function reflectWithAI() {
     background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.8), rgba(226,232,240,0.9));
     font-size: 17px;
   }
+  .icon-chip {
+    position: relative;
+    overflow: visible;
+    z-index: 100;
+  }
+  .icon-tooltip {
+    position: absolute;
+    top: calc(100% + 10px);
+    left: 50%;
+    transform: translate(-50%, 8px);
+    white-space: nowrap;
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, rgba(241,245,249,0.96), rgba(255,255,255,0.96));
+    border: 1px solid rgba(226,232,240,0.95);
+    box-shadow: 0 14px 32px rgba(15,23,42,0.18);
+    color: #0f172a;
+    font-size: 13px;
+    font-weight: 700;
+    max-width: 420px;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 140ms ease, transform 140ms ease;
+    backdrop-filter: blur(10px);
+    z-index: 2000;
+  }
+  .icon-chip:hover .icon-tooltip {
+    opacity: 1;
+    transform: translate(-50%, 2px);
+  }
   .calendar-popover {
     position: absolute;
     top: 56px;
-    left: 0;
+    left: auto;
+    right: 0;
     z-index: 20;
     width: 240px;
     background: #fff;
